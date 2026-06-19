@@ -32,7 +32,8 @@ import {
   Calendar,
   X,
   Wind,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react";
 import ReframingCards, { getReframingCards, getCategoryVow } from "./components/ReframingCards";
 
@@ -43,6 +44,11 @@ export default function App() {
   const [inputValue, setInputValue] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // PWA installation states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState<boolean>(false);
+
 
   // Auto play speech toggle
   const [autoPlaySpeech, setAutoPlaySpeech] = useState<boolean>(true);
@@ -100,7 +106,40 @@ export default function App() {
     } catch (e) {
       console.error("Failed to load journals", e);
     }
+
+    // PWA beforeinstallprompt handler
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // Listen to appinstalled event to reset states
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setShowInstallBtn(false);
+      console.log("ChatLight was installed successfully!");
+    };
+
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
   }, []);
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
+
 
   // Deep breathing 4-7-8 pulse timer logic
   useEffect(() => {
@@ -841,7 +880,7 @@ export default function App() {
                 </div>
 
                 {/* Start CTA Area */}
-                <div className="shrink-0">
+                <div className="shrink-0 space-y-2">
                   <motion.button
                     id="btn_start_counseling"
                     onClick={() => triggerStart()}
@@ -853,6 +892,18 @@ export default function App() {
                     一鍵開始對話
                     <ArrowRight className="w-5 h-5 text-indigo-200 ml-1" />
                   </motion.button>
+
+                  {showInstallBtn && (
+                    <motion.button
+                      onClick={handleInstallPWA}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all duration-200"
+                    >
+                      <Download className="w-4 h-4 text-emerald-100" />
+                      安裝「聊亮」App 至桌面
+                    </motion.button>
+                  )}
                 </div>
               </motion.div>
             ) : (
@@ -892,6 +943,17 @@ export default function App() {
                   </div>
 
                   <div className="flex items-center gap-1.5 relative">
+                    {/* PWA Install Button in Header */}
+                    {showInstallBtn && (
+                      <button
+                        onClick={handleInstallPWA}
+                        className="p-1.5 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 rounded-xl transition-all relative flex items-center justify-center cursor-pointer border border-emerald-150 animate-pulse-soft"
+                        title="下載安裝此應用程式"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    )}
+
                     {/* Journal History Button */}
                     <button
                       onClick={() => setShowJournalsModal(true)}
