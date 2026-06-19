@@ -1,0 +1,10 @@
+{
+  "name": "聊亮 ChatLight",
+  "description": "「生活總是卡卡的？聊完，就明亮了。」",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
