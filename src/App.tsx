@@ -725,12 +725,12 @@ export default function App() {
   const isReframingActive = session.phase === "practice" && session.mode === "life";
 
   return (
-    <div className="min-h-screen bg-slate-150 text-slate-800 font-sans flex items-center justify-center p-0 md:p-6 lg:p-8 relative">
+    <div className="h-screen w-full md:min-h-screen bg-slate-150 text-slate-800 font-sans flex items-center justify-center p-0 md:p-6 lg:p-8 relative overflow-hidden">
 
       {/* Unified Adaptive Application Shell */}
       <div
         id="app_shell"
-        className="w-full max-w-5xl bg-white h-[100dvh] md:h-[85vh] lg:h-[88vh] md:min-h-[720px] md:rounded-3xl md:shadow-2xl md:border md:border-slate-205 overflow-hidden flex flex-col flex-1 relative shadow-indigo-100/30"
+        className="w-full max-w-5xl bg-white h-full md:h-[85vh] lg:h-[88vh] md:min-h-[720px] md:rounded-3xl md:shadow-2xl md:border md:border-slate-205 overflow-hidden flex flex-col flex-1 relative shadow-indigo-100/30"
       >
 
         {/* Right Side / Mobile & tablet workspace (Takes full screen conditionally) */}
@@ -748,7 +748,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}
                 transition={{ duration: 0.4 }}
-                className="flex-1 flex flex-col justify-between p-4 bg-gradient-to-b from-indigo-50/50 via-white to-white overflow-y-auto"
+                className="flex-1 flex flex-col p-4 bg-gradient-to-b from-indigo-50/50 via-white to-white overflow-y-auto"
               >
                 {/* Header Visual */}
                 <div className="flex flex-col items-center pt-6 text-center">
@@ -1723,8 +1723,6 @@ export default function App() {
                     )}
                   </AnimatePresence>
                 </div>
-
-                {/* <div className="bg-white pb-5 shrink-0"></div> */}
 
               </motion.div>
             )}
