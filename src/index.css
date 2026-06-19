@@ -5,6 +5,36 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom Warm Theme (derived from counselor_avatar_1781520672657.jpg) */
+  /* Redefining indigo to warm coral, peach, and terracotta tones */
+  --color-indigo-50: #fff6f0;
+  --color-indigo-100: #ffe8dc;
+  --color-indigo-200: #fecdb3;
+  --color-indigo-300: #fca782;
+  --color-indigo-400: #fa8250;
+  --color-indigo-500: #f5612c;
+  --color-indigo-550: #ea501c;
+  --color-indigo-600: #d6400e;
+  --color-indigo-700: #b0300a;
+  --color-indigo-800: #862106;
+  --color-indigo-900: #571202;
+  --color-indigo-950: #330b01;
+
+  /* Redefining slate to warm clay-tinted neutrals */
+  --color-slate-50: #fffdfb;
+  --color-slate-100: #fbf5ee;
+  --color-slate-150: #f4eae0;
+  --color-slate-200: #ebdccf;
+  --color-slate-250: #decbbe;
+  --color-slate-300: #cfb7a8;
+  --color-slate-400: #b59b8a;
+  --color-slate-500: #9c806f;
+  --color-slate-600: #806757;
+  --color-slate-700: #665042;
+  --color-slate-800: #4d3b31;
+  --color-slate-900: #33261f;
+  --color-slate-950: #1b1310;
 }
 
 html, body, #root {
@@ -14,7 +44,7 @@ html, body, #root {
   height: 100dvh; /* Use dynamic viewport height to adapt to browser chrome and soft keyboard */
   overflow: hidden;
   position: fixed; /* Lock viewport to prevent mobile browser chrome bouncing/scrolling */
-  background-color: #f1f5f9; /* Slate 100/150 background */
+  background-color: var(--color-slate-100); /* Warm slate-100 background */
 }
 
 

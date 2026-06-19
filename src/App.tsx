@@ -2024,7 +2024,7 @@ export default function App() {
                       className={`w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-2xl relative transition-colors duration-1000 border border-white/10 ${breathingPhase === "ready" ? "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-350" :
                         breathingPhase === "inhale" ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-teal-50" :
                           breathingPhase === "hold" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-amber-50" :
-                            "bg-gradient-to-br from-indigo-500 to-blue-600 text-indigo-50"
+                            "bg-gradient-to-br from-indigo-500 to-indigo-600 text-indigo-50"
                         }`}
                     >
                       {/* Pulsing inner core */}
