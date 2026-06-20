@@ -151,7 +151,14 @@ export default function App() {
 
   const stopAllAudio = () => {
     if (crackleIntervalRef.current) {
-      clearInterval(crackleIntervalRef.current);
+      if (Array.isArray(crackleIntervalRef.current)) {
+        crackleIntervalRef.current.forEach((timer) => {
+          clearInterval(timer);
+          clearTimeout(timer);
+        });
+      } else {
+        clearInterval(crackleIntervalRef.current);
+      }
       crackleIntervalRef.current = null;
     }
     if (noiseSourceRef.current) {
@@ -320,10 +327,175 @@ export default function App() {
         lfoC.start();
 
       } else if (noiseType === "rain") {
+        // --- FOREST (河流, 鳥鳴) ---
+        const pinkBuffer = createPinkNoiseBuffer(ctx);
+        const timers: any[] = [];
+        crackleIntervalRef.current = timers;
+
+        // River continuous source A (flowing pink noise, left-ish)
+        const sourceA = ctx.createBufferSource();
+        sourceA.buffer = pinkBuffer;
+        sourceA.loop = true;
+        noiseSourceRef.current = sourceA;
+
+        const filterA = ctx.createBiquadFilter();
+        filterA.type = "bandpass";
+        filterA.frequency.value = 550;
+        filterA.Q.value = 0.6;
+
+        const gainA = ctx.createGain();
+        gainA.gain.value = 0.08;
+
+        // Modulate filter frequency slowly to sound like shifting water currents
+        const lfoRiver = ctx.createOscillator();
+        lfoRiver.frequency.value = 0.15;
+        const lfoRiverGain = ctx.createGain();
+        lfoRiverGain.gain.value = 120; // sweep +/- 120Hz
+        
+        lfoRiver.connect(lfoRiverGain);
+        lfoRiverGain.connect(filterA.frequency);
+
+        sourceA.connect(filterA);
+        filterA.connect(gainA);
+
+        const pannerA = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pannerA) {
+          pannerA.pan.value = -0.2;
+          gainA.connect(pannerA);
+          pannerA.connect(mainGain);
+        } else {
+          gainA.connect(mainGain);
+        }
+
+        // River continuous source B (higher splash sheen, right-ish)
+        const sourceB = ctx.createBufferSource();
+        sourceB.buffer = pinkBuffer;
+        sourceB.loop = true;
+
+        const filterB = ctx.createBiquadFilter();
+        filterB.type = "bandpass";
+        filterB.frequency.value = 900;
+        filterB.Q.value = 0.5;
+
+        const gainB = ctx.createGain();
+        gainB.gain.value = 0.03;
+
+        sourceB.connect(filterB);
+        filterB.connect(gainB);
+
+        const pannerB = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pannerB) {
+          pannerB.pan.value = 0.4;
+          gainB.connect(pannerB);
+          pannerB.connect(mainGain);
+        } else {
+          gainB.connect(mainGain);
+        }
+
+        // Water bubbling
+        const bubbleTimer = setInterval(() => {
+          if (ctx.state === "suspended") return;
+          if (Math.random() > 0.45) return;
+
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          osc.type = "sine";
+
+          const startFreq = 160 + Math.random() * 90;
+          const endFreq = startFreq * (1.8 + Math.random() * 1.5);
+          osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + 0.09);
+
+          gainNode.gain.setValueAtTime(0.0, ctx.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.012 + Math.random() * 0.015, ctx.currentTime + 0.02);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09);
+
+          const bubblePanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+          if (bubblePanner) {
+            bubblePanner.pan.value = Math.random() * 1.2 - 0.6;
+            osc.connect(gainNode);
+            gainNode.connect(bubblePanner);
+            bubblePanner.connect(mainGain);
+          } else {
+            osc.connect(gainNode);
+            gainNode.connect(mainGain);
+          }
+
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        }, 180);
+        timers.push(bubbleTimer);
+
+        // Bird chirping
+        const triggerBirdSong = () => {
+          if (ctx.state === "suspended") return;
+          const now = ctx.currentTime;
+          const numChirps = 2 + Math.floor(Math.random() * 3);
+          let chirpTime = now;
+          const birdPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+          if (birdPanner) {
+            birdPanner.pan.value = Math.random() * 1.4 - 0.7;
+          }
+          
+          const baseFreq = 2600 + Math.random() * 1600;
+          const style = Math.random();
+          
+          for (let i = 0; i < numChirps; i++) {
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = "sine";
+            
+            const duration = 0.07 + Math.random() * 0.06;
+            const delayBetween = duration + 0.04 + Math.random() * 0.05;
+            
+            if (style < 0.5) {
+              osc.frequency.setValueAtTime(baseFreq + 900, chirpTime);
+              osc.frequency.exponentialRampToValueAtTime(baseFreq - 400, chirpTime + duration);
+            } else {
+              osc.frequency.setValueAtTime(baseFreq - 200, chirpTime);
+              osc.frequency.linearRampToValueAtTime(baseFreq + 700, chirpTime + duration * 0.4);
+              osc.frequency.exponentialRampToValueAtTime(baseFreq - 500, chirpTime + duration);
+            }
+            
+            gainNode.gain.setValueAtTime(0, chirpTime);
+            gainNode.gain.linearRampToValueAtTime(0.008 + Math.random() * 0.008, chirpTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, chirpTime + duration);
+            
+            if (birdPanner) {
+              osc.connect(gainNode);
+              gainNode.connect(birdPanner);
+              birdPanner.connect(mainGain);
+            } else {
+              osc.connect(gainNode);
+              gainNode.connect(mainGain);
+            }
+            
+            osc.start(chirpTime);
+            osc.stop(chirpTime + duration + 0.05);
+            
+            chirpTime += delayBetween;
+          }
+        };
+
+        const birdTimer = setInterval(() => {
+          if (Math.random() < 0.65) {
+            triggerBirdSong();
+          }
+        }, 5000);
+        timers.push(birdTimer);
+
+        sourceA.start();
+        sourceB.start();
+        lfoRiver.start();
+
+      } else if (noiseType === "campfire") {
+        // --- MOUNTAIN RAIN (屋簷/葉片落雨聲, 遠雷) ---
         const pinkBuffer = createPinkNoiseBuffer(ctx);
         const brownBuffer = createBrownNoiseBuffer(ctx);
+        const timers: any[] = [];
+        crackleIntervalRef.current = timers;
 
-        // Layer A: Background rain body
+        // Steady rain background (flowing pink noise)
         const sourceA = ctx.createBufferSource();
         sourceA.buffer = pinkBuffer;
         sourceA.loop = true;
@@ -331,14 +503,14 @@ export default function App() {
 
         const filterA = ctx.createBiquadFilter();
         filterA.type = "lowpass";
-        filterA.frequency.value = 800;
+        filterA.frequency.value = 750;
 
         const gainA = ctx.createGain();
         gainA.gain.value = 0.08;
 
-        // Modulate slightly for wind effect
+        // Slow wind effect modulating gain
         const lfoWind = ctx.createOscillator();
-        lfoWind.frequency.value = 0.035;
+        lfoWind.frequency.value = 0.03;
         const lfoWindGain = ctx.createGain();
         lfoWindGain.gain.value = 0.025;
         
@@ -349,72 +521,40 @@ export default function App() {
         filterA.connect(gainA);
         gainA.connect(mainGain);
 
-        // Layer B: Higher sheen/sheer rain
-        const sourceB = ctx.createBufferSource();
-        sourceB.buffer = pinkBuffer;
-        sourceB.loop = true;
-
-        const filterB = ctx.createBiquadFilter();
-        filterB.type = "bandpass";
-        filterB.frequency.value = 2200;
-        filterB.Q.value = 1.0;
-
-        const gainB = ctx.createGain();
-        gainB.gain.value = 0.035;
-
-        sourceB.connect(filterB);
-        filterB.connect(gainB);
-        gainB.connect(mainGain);
-
-        // Layer C: Low frequency thunder/ground rumble
-        const sourceC = ctx.createBufferSource();
-        sourceC.buffer = brownBuffer;
-        sourceC.loop = true;
-
-        const filterC = ctx.createBiquadFilter();
-        filterC.type = "lowpass";
-        filterC.frequency.value = 70;
-
-        const gainC = ctx.createGain();
-        gainC.gain.value = 0.015;
-
-        // Thunder roll modulation (~100 seconds)
-        const lfoThunder = ctx.createOscillator();
-        lfoThunder.frequency.value = 0.01;
-        const lfoThunderGain = ctx.createGain();
-        lfoThunderGain.gain.value = 0.01;
-
-        lfoThunder.connect(lfoThunderGain);
-        lfoThunderGain.connect(gainC.gain);
-
-        sourceC.connect(filterC);
-        filterC.connect(gainC);
-        gainC.connect(mainGain);
-
-        // Layer D: Randomly panned raindrops hitting leaves
-        const dropBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+        // Pre-generate roof/leaf drip buffer
+        const dropBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
         const dropData = dropBuffer.getChannelData(0);
         let lastRandom = 0.0;
         for (let i = 0; i < dropData.length; i++) {
           const white = Math.random() * 2 - 1;
-          const decay = Math.exp(-i / (ctx.sampleRate * 0.015)); // decay in 15ms
-          dropData[i] = (white - lastRandom) * decay * 0.4;
+          const decay = Math.exp(-i / (ctx.sampleRate * 0.018));
+          dropData[i] = (white - lastRandom) * decay * 0.45;
           lastRandom = white;
         }
 
-        crackleIntervalRef.current = setInterval(() => {
+        const dropTimer = setInterval(() => {
           if (ctx.state === "suspended") return;
           
           const dropSource = ctx.createBufferSource();
           dropSource.buffer = dropBuffer;
           
           const dropGain = ctx.createGain();
-          dropGain.gain.setValueAtTime(0.01 + Math.random() * 0.025, ctx.currentTime);
+          const isRoofDrip = Math.random() < 0.45;
           
           const dropFilter = ctx.createBiquadFilter();
           dropFilter.type = "bandpass";
-          dropFilter.frequency.value = 1600 + Math.random() * 2500;
-          dropFilter.Q.value = 1.5;
+          
+          if (isRoofDrip) {
+            // Hollow resonant plonk (Roof drip)
+            dropGain.gain.setValueAtTime(0.015 + Math.random() * 0.035, ctx.currentTime);
+            dropFilter.frequency.value = 650 + Math.random() * 550;
+            dropFilter.Q.value = 4.5;
+          } else {
+            // Crisp leaf drop
+            dropGain.gain.setValueAtTime(0.008 + Math.random() * 0.018, ctx.currentTime);
+            dropFilter.frequency.value = 1600 + Math.random() * 2000;
+            dropFilter.Q.value = 1.3;
+          }
           
           const dropPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
           if (dropPanner) {
@@ -429,149 +569,68 @@ export default function App() {
             dropGain.connect(mainGain);
           }
           dropSource.start();
-        }, 75);
+        }, 65);
+        timers.push(dropTimer);
 
-        // Start continuous nodes
-        sourceA.start();
-        sourceB.start();
-        sourceC.start();
-        lfoWind.start();
-        lfoThunder.start();
-
-      } else if (noiseType === "campfire") {
-        const pinkBuffer = createPinkNoiseBuffer(ctx);
-        const brownBuffer = createBrownNoiseBuffer(ctx);
-
-        // Layer A: Flame licking / Hiss (modulated by fast LFO)
-        const sourceA = ctx.createBufferSource();
-        sourceA.buffer = pinkBuffer;
-        sourceA.loop = true;
-        noiseSourceRef.current = sourceA;
-
-        const filterA = ctx.createBiquadFilter();
-        filterA.type = "bandpass";
-        filterA.frequency.value = 1400;
-        filterA.Q.value = 1.5;
-
-        const gainA = ctx.createGain();
-        gainA.gain.value = 0.02;
-
-        const flameLFO = ctx.createOscillator();
-        flameLFO.frequency.value = 3.5; // flame flutter rate
-        const flameLFOGain = ctx.createGain();
-        flameLFOGain.gain.value = 0.015;
-
-        flameLFO.connect(flameLFOGain);
-        flameLFOGain.connect(gainA.gain);
-
-        sourceA.connect(filterA);
-        filterA.connect(gainA);
-        gainA.connect(mainGain);
-
-        // Layer B: Wood glow / Deep warmth
-        const sourceB = ctx.createBufferSource();
-        sourceB.buffer = brownBuffer;
-        sourceB.loop = true;
-
-        const filterB = ctx.createBiquadFilter();
-        filterB.type = "lowpass";
-        filterB.frequency.value = 90;
-
-        const gainB = ctx.createGain();
-        gainB.gain.value = 0.07;
-
-        // Slow glow modulation
-        const glowLFO = ctx.createOscillator();
-        glowLFO.frequency.value = 0.12;
-        const glowLFOGain = ctx.createGain();
-        glowLFOGain.gain.value = 0.02;
-
-        glowLFO.connect(glowLFOGain);
-        glowLFOGain.connect(gainB.gain);
-
-        sourceB.connect(filterB);
-        filterB.connect(gainB);
-        gainB.connect(mainGain);
-
-        // Generate wood crackle and pop buffers
-        const crackleBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.02, ctx.sampleRate);
-        const crackleData = crackleBuffer.getChannelData(0);
-        for (let i = 0; i < crackleData.length; i++) {
-          const decay = Math.exp(-i / (ctx.sampleRate * 0.002));
-          crackleData[i] = (Math.random() * 2 - 1) * decay;
-        }
-
-        const popBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
-        const popData = popBuffer.getChannelData(0);
-        for (let i = 0; i < popData.length; i++) {
-          const decay = Math.exp(-i / (ctx.sampleRate * 0.03));
-          popData[i] = (Math.random() * 2 - 1) * decay;
-        }
-
-        crackleIntervalRef.current = setInterval(() => {
+        // Distant Low Thunder roll
+        const triggerThunder = () => {
           if (ctx.state === "suspended") return;
-          const rand = Math.random();
+          const now = ctx.currentTime;
+          const duration = 4.0 + Math.random() * 4.5;
           
-          if (rand < 0.28) {
-            // High-pitched crackle
-            const clickSource = ctx.createBufferSource();
-            clickSource.buffer = crackleBuffer;
-            
-            const clickGain = ctx.createGain();
-            clickGain.gain.value = 0.03 + Math.random() * 0.07;
-            
-            const clickFilter = ctx.createBiquadFilter();
-            clickFilter.type = "bandpass";
-            clickFilter.frequency.value = 1600 + Math.random() * 2400;
-            clickFilter.Q.value = 2.0;
-            
-            const clickPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-            if (clickPanner) {
-              clickPanner.pan.value = Math.random() * 1.2 - 0.6;
-              clickSource.connect(clickFilter);
-              clickFilter.connect(clickGain);
-              clickGain.connect(clickPanner);
-              clickPanner.connect(mainGain);
-            } else {
-              clickSource.connect(clickFilter);
-              clickFilter.connect(clickGain);
-              clickGain.connect(mainGain);
-            }
-            clickSource.start();
-          } else if (rand < 0.33) {
-            // Deeper wood pop
-            const popSource = ctx.createBufferSource();
-            popSource.buffer = popBuffer;
-            
-            const popGain = ctx.createGain();
-            popGain.gain.value = 0.07 + Math.random() * 0.11;
-            
-            const popFilter = ctx.createBiquadFilter();
-            popFilter.type = "bandpass";
-            popFilter.frequency.value = 140 + Math.random() * 250;
-            popFilter.Q.value = 3.0;
-            
-            const popPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-            if (popPanner) {
-              popPanner.pan.value = Math.random() * 1.0 - 0.5;
-              popSource.connect(popFilter);
-              popFilter.connect(popGain);
-              popGain.connect(popPanner);
-              popPanner.connect(mainGain);
-            } else {
-              popSource.connect(popFilter);
-              popFilter.connect(popGain);
-              popGain.connect(mainGain);
-            }
-            popSource.start();
+          const thunderSource = ctx.createBufferSource();
+          thunderSource.buffer = brownBuffer;
+          thunderSource.loop = true;
+          
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = 55 + Math.random() * 25; // 55Hz - 80Hz rumble
+          
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(0.0, now);
+          
+          // Rumble volume curve
+          gainNode.gain.linearRampToValueAtTime(0.05 + Math.random() * 0.05, now + 1.2 + Math.random() * 0.8);
+          
+          let t = now + 2.0;
+          const endTime = now + duration;
+          while (t < endTime - 1.5) {
+            gainNode.gain.linearRampToValueAtTime(0.025 + Math.random() * 0.055, t);
+            t += 0.3 + Math.random() * 0.4;
           }
-        }, 130);
+          
+          gainNode.gain.linearRampToValueAtTime(0.0, endTime);
+          
+          const thunderPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+          if (thunderPanner) {
+            thunderPanner.pan.value = Math.random() * 1.0 - 0.5;
+            thunderSource.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(thunderPanner);
+            thunderPanner.connect(mainGain);
+          } else {
+            thunderSource.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(mainGain);
+          }
+          
+          thunderSource.start(now);
+          thunderSource.stop(endTime + 0.1);
+        };
 
-        // Start continuous nodes
+        const thunderTimer = setInterval(() => {
+          if (Math.random() < 0.65) {
+            triggerThunder();
+          }
+        }, 14000);
+        timers.push(thunderTimer);
+
         sourceA.start();
-        sourceB.start();
-        flameLFO.start();
-        glowLFO.start();
+        lfoWind.start();
+
+        // Trigger one early thunder
+        const initialThunderTimeout = setTimeout(triggerThunder, 1500);
+        timers.push(initialThunderTimeout);
       }
 
       // Smooth master fade-in over 1.5 seconds
@@ -2740,8 +2799,8 @@ export default function App() {
                                 <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
                                   {breathingNoise === "none" && "已關閉"}
                                   {breathingNoise === "ocean" && "海洋波濤 🌊"}
-                                  {breathingNoise === "rain" && "森林細雨 🌧️"}
-                                  {breathingNoise === "campfire" && "柴火微光 🔥"}
+                                  {breathingNoise === "rain" && "森林溪流 🐦"}
+                                  {breathingNoise === "campfire" && "山谷落雨 🌧️"}
                                 </span>
                               </div>
                               <div className="grid grid-cols-4 gap-1.5">
@@ -2758,8 +2817,8 @@ export default function App() {
                                   >
                                     {type === "none" && "無"}
                                     {type === "ocean" && "海浪"}
-                                    {type === "rain" && "細雨"}
-                                    {type === "campfire" && "柴火"}
+                                    {type === "rain" && "森林"}
+                                    {type === "campfire" && "山雨"}
                                   </button>
                                 ))}
                               </div>
