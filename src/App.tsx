@@ -181,65 +181,402 @@ export default function App() {
       const ctx = new AudioCtx();
       audioCtxRef.current = ctx;
 
+      // Master gain node (faded from 0 to 1 over 1.5 seconds)
       const mainGain = ctx.createGain();
-      mainGain.gain.value = 0.0;
+      mainGain.gain.setValueAtTime(0.0, ctx.currentTime);
       mainGain.connect(ctx.destination);
       noiseGainNodeRef.current = mainGain;
 
-      let buffer: AudioBuffer;
-      if (noiseType === "ocean" || noiseType === "rain") {
-        buffer = createPinkNoiseBuffer(ctx);
-      } else {
-        buffer = createBrownNoiseBuffer(ctx);
-      }
+      if (noiseType === "ocean") {
+        const pinkBuffer = createPinkNoiseBuffer(ctx);
 
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      noiseSourceRef.current = source;
+        // Layer A: Low wave swell (Left-ish)
+        const sourceA = ctx.createBufferSource();
+        sourceA.buffer = pinkBuffer;
+        sourceA.loop = true;
+        noiseSourceRef.current = sourceA;
 
-      if (noiseType === "rain") {
-        const filter = ctx.createBiquadFilter();
-        filter.type = "bandpass";
-        filter.frequency.value = 1200;
-        filter.Q.value = 1.0;
-        source.connect(filter);
-        filter.connect(mainGain);
-        mainGain.gain.setValueAtTime(0.12, ctx.currentTime);
-      } else if (noiseType === "campfire") {
-        source.connect(mainGain);
-        mainGain.gain.setValueAtTime(0.1, ctx.currentTime);
+        const filterA = ctx.createBiquadFilter();
+        filterA.type = "lowpass";
+        filterA.frequency.value = 350;
 
-        const clickBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.01, ctx.sampleRate);
-        const clickData = clickBuffer.getChannelData(0);
-        for (let i = 0; i < clickData.length; i++) {
-          const decay = Math.exp(-i / (ctx.sampleRate * 0.002));
-          clickData[i] = (Math.random() * 2 - 1) * decay;
+        const gainA = ctx.createGain();
+        gainA.gain.value = 0.05; // Base gain
+
+        // LFO A to modulate gain (slow tide cycle ~16 seconds)
+        const lfoA = ctx.createOscillator();
+        lfoA.frequency.value = 0.062;
+        const lfoGainA = ctx.createGain();
+        lfoGainA.gain.value = 0.045; // oscillates between 0.005 and 0.095
+
+        lfoA.connect(lfoGainA);
+        lfoGainA.connect(gainA.gain);
+
+        sourceA.connect(filterA);
+        filterA.connect(gainA);
+
+        const pannerA = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pannerA) {
+          pannerA.pan.value = -0.5;
+          gainA.connect(pannerA);
+          pannerA.connect(mainGain);
+        } else {
+          gainA.connect(mainGain);
+        }
+
+        // Layer B: Mid wave swell (Right-ish)
+        const sourceB = ctx.createBufferSource();
+        sourceB.buffer = pinkBuffer;
+        sourceB.loop = true;
+
+        const filterB = ctx.createBiquadFilter();
+        filterB.type = "lowpass";
+        filterB.frequency.value = 450;
+
+        const gainB = ctx.createGain();
+        gainB.gain.value = 0.05; // Base gain
+
+        // LFO B to modulate gain (slow tide cycle ~13 seconds)
+        const lfoB = ctx.createOscillator();
+        lfoB.frequency.value = 0.077;
+        const lfoGainB = ctx.createGain();
+        lfoGainB.gain.value = 0.045; // oscillates between 0.005 and 0.095
+
+        lfoB.connect(lfoGainB);
+        lfoGainB.connect(gainB.gain);
+
+        sourceB.connect(filterB);
+        filterB.connect(gainB);
+
+        const pannerB = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pannerB) {
+          pannerB.pan.value = 0.5;
+          gainB.connect(pannerB);
+          pannerB.connect(mainGain);
+        } else {
+          gainB.connect(mainGain);
+        }
+
+        // Layer C: High wash foam (Stereo Sweep)
+        const sourceC = ctx.createBufferSource();
+        sourceC.buffer = pinkBuffer;
+        sourceC.loop = true;
+
+        const filterC = ctx.createBiquadFilter();
+        filterC.type = "bandpass";
+        filterC.frequency.value = 1500;
+        filterC.Q.value = 0.8;
+
+        const gainC = ctx.createGain();
+        gainC.gain.value = 0.015; // Base gain
+
+        // LFO C to modulate gain (~9 seconds)
+        const lfoC = ctx.createOscillator();
+        lfoC.frequency.value = 0.11;
+        const lfoGainC = ctx.createGain();
+        lfoGainC.gain.value = 0.012; // oscillates between 0.003 and 0.027
+
+        lfoC.connect(lfoGainC);
+        lfoGainC.connect(gainC.gain);
+
+        sourceC.connect(filterC);
+        filterC.connect(gainC);
+
+        const pannerC = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pannerC) {
+          // LFO to sweep panning from left to right (~25 seconds)
+          const lfoPan = ctx.createOscillator();
+          lfoPan.frequency.value = 0.04;
+          const lfoPanGain = ctx.createGain();
+          lfoPanGain.gain.value = 0.7; // sweep pan between -0.7 and +0.7
+          
+          lfoPan.connect(lfoPanGain);
+          lfoPanGain.connect(pannerC.pan);
+          lfoPan.start();
+
+          gainC.connect(pannerC);
+          pannerC.connect(mainGain);
+        } else {
+          gainC.connect(mainGain);
+        }
+
+        // Reverb/reflection effect (Delay Line feedback loop)
+        const delay = ctx.createDelay();
+        delay.delayTime.value = 0.15; // 150ms delay
+        const delayGain = ctx.createGain();
+        delayGain.gain.value = 0.25; // feedback volume
+
+        mainGain.connect(delay);
+        delay.connect(delayGain);
+        delayGain.connect(delay); // feedback loop
+        delayGain.connect(ctx.destination); // send wet signal to destination
+
+        // Start all continuous nodes
+        sourceA.start();
+        sourceB.start();
+        sourceC.start();
+        lfoA.start();
+        lfoB.start();
+        lfoC.start();
+
+      } else if (noiseType === "rain") {
+        const pinkBuffer = createPinkNoiseBuffer(ctx);
+        const brownBuffer = createBrownNoiseBuffer(ctx);
+
+        // Layer A: Background rain body
+        const sourceA = ctx.createBufferSource();
+        sourceA.buffer = pinkBuffer;
+        sourceA.loop = true;
+        noiseSourceRef.current = sourceA;
+
+        const filterA = ctx.createBiquadFilter();
+        filterA.type = "lowpass";
+        filterA.frequency.value = 800;
+
+        const gainA = ctx.createGain();
+        gainA.gain.value = 0.08;
+
+        // Modulate slightly for wind effect
+        const lfoWind = ctx.createOscillator();
+        lfoWind.frequency.value = 0.035;
+        const lfoWindGain = ctx.createGain();
+        lfoWindGain.gain.value = 0.025;
+        
+        lfoWind.connect(lfoWindGain);
+        lfoWindGain.connect(gainA.gain);
+
+        sourceA.connect(filterA);
+        filterA.connect(gainA);
+        gainA.connect(mainGain);
+
+        // Layer B: Higher sheen/sheer rain
+        const sourceB = ctx.createBufferSource();
+        sourceB.buffer = pinkBuffer;
+        sourceB.loop = true;
+
+        const filterB = ctx.createBiquadFilter();
+        filterB.type = "bandpass";
+        filterB.frequency.value = 2200;
+        filterB.Q.value = 1.0;
+
+        const gainB = ctx.createGain();
+        gainB.gain.value = 0.035;
+
+        sourceB.connect(filterB);
+        filterB.connect(gainB);
+        gainB.connect(mainGain);
+
+        // Layer C: Low frequency thunder/ground rumble
+        const sourceC = ctx.createBufferSource();
+        sourceC.buffer = brownBuffer;
+        sourceC.loop = true;
+
+        const filterC = ctx.createBiquadFilter();
+        filterC.type = "lowpass";
+        filterC.frequency.value = 70;
+
+        const gainC = ctx.createGain();
+        gainC.gain.value = 0.015;
+
+        // Thunder roll modulation (~100 seconds)
+        const lfoThunder = ctx.createOscillator();
+        lfoThunder.frequency.value = 0.01;
+        const lfoThunderGain = ctx.createGain();
+        lfoThunderGain.gain.value = 0.01;
+
+        lfoThunder.connect(lfoThunderGain);
+        lfoThunderGain.connect(gainC.gain);
+
+        sourceC.connect(filterC);
+        filterC.connect(gainC);
+        gainC.connect(mainGain);
+
+        // Layer D: Randomly panned raindrops hitting leaves
+        const dropBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+        const dropData = dropBuffer.getChannelData(0);
+        let lastRandom = 0.0;
+        for (let i = 0; i < dropData.length; i++) {
+          const white = Math.random() * 2 - 1;
+          const decay = Math.exp(-i / (ctx.sampleRate * 0.015)); // decay in 15ms
+          dropData[i] = (white - lastRandom) * decay * 0.4;
+          lastRandom = white;
         }
 
         crackleIntervalRef.current = setInterval(() => {
           if (ctx.state === "suspended") return;
-          if (Math.random() < 0.35) {
+          
+          const dropSource = ctx.createBufferSource();
+          dropSource.buffer = dropBuffer;
+          
+          const dropGain = ctx.createGain();
+          dropGain.gain.setValueAtTime(0.01 + Math.random() * 0.025, ctx.currentTime);
+          
+          const dropFilter = ctx.createBiquadFilter();
+          dropFilter.type = "bandpass";
+          dropFilter.frequency.value = 1600 + Math.random() * 2500;
+          dropFilter.Q.value = 1.5;
+          
+          const dropPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+          if (dropPanner) {
+            dropPanner.pan.value = Math.random() * 1.6 - 0.8;
+            dropSource.connect(dropFilter);
+            dropFilter.connect(dropGain);
+            dropGain.connect(dropPanner);
+            dropPanner.connect(mainGain);
+          } else {
+            dropSource.connect(dropFilter);
+            dropFilter.connect(dropGain);
+            dropGain.connect(mainGain);
+          }
+          dropSource.start();
+        }, 75);
+
+        // Start continuous nodes
+        sourceA.start();
+        sourceB.start();
+        sourceC.start();
+        lfoWind.start();
+        lfoThunder.start();
+
+      } else if (noiseType === "campfire") {
+        const pinkBuffer = createPinkNoiseBuffer(ctx);
+        const brownBuffer = createBrownNoiseBuffer(ctx);
+
+        // Layer A: Flame licking / Hiss (modulated by fast LFO)
+        const sourceA = ctx.createBufferSource();
+        sourceA.buffer = pinkBuffer;
+        sourceA.loop = true;
+        noiseSourceRef.current = sourceA;
+
+        const filterA = ctx.createBiquadFilter();
+        filterA.type = "bandpass";
+        filterA.frequency.value = 1400;
+        filterA.Q.value = 1.5;
+
+        const gainA = ctx.createGain();
+        gainA.gain.value = 0.02;
+
+        const flameLFO = ctx.createOscillator();
+        flameLFO.frequency.value = 3.5; // flame flutter rate
+        const flameLFOGain = ctx.createGain();
+        flameLFOGain.gain.value = 0.015;
+
+        flameLFO.connect(flameLFOGain);
+        flameLFOGain.connect(gainA.gain);
+
+        sourceA.connect(filterA);
+        filterA.connect(gainA);
+        gainA.connect(mainGain);
+
+        // Layer B: Wood glow / Deep warmth
+        const sourceB = ctx.createBufferSource();
+        sourceB.buffer = brownBuffer;
+        sourceB.loop = true;
+
+        const filterB = ctx.createBiquadFilter();
+        filterB.type = "lowpass";
+        filterB.frequency.value = 90;
+
+        const gainB = ctx.createGain();
+        gainB.gain.value = 0.07;
+
+        // Slow glow modulation
+        const glowLFO = ctx.createOscillator();
+        glowLFO.frequency.value = 0.12;
+        const glowLFOGain = ctx.createGain();
+        glowLFOGain.gain.value = 0.02;
+
+        glowLFO.connect(glowLFOGain);
+        glowLFOGain.connect(gainB.gain);
+
+        sourceB.connect(filterB);
+        filterB.connect(gainB);
+        gainB.connect(mainGain);
+
+        // Generate wood crackle and pop buffers
+        const crackleBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.02, ctx.sampleRate);
+        const crackleData = crackleBuffer.getChannelData(0);
+        for (let i = 0; i < crackleData.length; i++) {
+          const decay = Math.exp(-i / (ctx.sampleRate * 0.002));
+          crackleData[i] = (Math.random() * 2 - 1) * decay;
+        }
+
+        const popBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+        const popData = popBuffer.getChannelData(0);
+        for (let i = 0; i < popData.length; i++) {
+          const decay = Math.exp(-i / (ctx.sampleRate * 0.03));
+          popData[i] = (Math.random() * 2 - 1) * decay;
+        }
+
+        crackleIntervalRef.current = setInterval(() => {
+          if (ctx.state === "suspended") return;
+          const rand = Math.random();
+          
+          if (rand < 0.28) {
+            // High-pitched crackle
             const clickSource = ctx.createBufferSource();
-            clickSource.buffer = clickBuffer;
+            clickSource.buffer = crackleBuffer;
+            
             const clickGain = ctx.createGain();
-            clickGain.gain.value = 0.03 + Math.random() * 0.08;
+            clickGain.gain.value = 0.03 + Math.random() * 0.07;
+            
             const clickFilter = ctx.createBiquadFilter();
             clickFilter.type = "bandpass";
-            clickFilter.frequency.value = 1800 + Math.random() * 2500;
-            clickFilter.Q.value = 3.0;
-            clickSource.connect(clickFilter);
-            clickFilter.connect(clickGain);
-            clickGain.connect(ctx.destination);
+            clickFilter.frequency.value = 1600 + Math.random() * 2400;
+            clickFilter.Q.value = 2.0;
+            
+            const clickPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+            if (clickPanner) {
+              clickPanner.pan.value = Math.random() * 1.2 - 0.6;
+              clickSource.connect(clickFilter);
+              clickFilter.connect(clickGain);
+              clickGain.connect(clickPanner);
+              clickPanner.connect(mainGain);
+            } else {
+              clickSource.connect(clickFilter);
+              clickFilter.connect(clickGain);
+              clickGain.connect(mainGain);
+            }
             clickSource.start();
+          } else if (rand < 0.33) {
+            // Deeper wood pop
+            const popSource = ctx.createBufferSource();
+            popSource.buffer = popBuffer;
+            
+            const popGain = ctx.createGain();
+            popGain.gain.value = 0.07 + Math.random() * 0.11;
+            
+            const popFilter = ctx.createBiquadFilter();
+            popFilter.type = "bandpass";
+            popFilter.frequency.value = 140 + Math.random() * 250;
+            popFilter.Q.value = 3.0;
+            
+            const popPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+            if (popPanner) {
+              popPanner.pan.value = Math.random() * 1.0 - 0.5;
+              popSource.connect(popFilter);
+              popFilter.connect(popGain);
+              popGain.connect(popPanner);
+              popPanner.connect(mainGain);
+            } else {
+              popSource.connect(popFilter);
+              popFilter.connect(popGain);
+              popGain.connect(mainGain);
+            }
+            popSource.start();
           }
-        }, 150);
-      } else if (noiseType === "ocean") {
-        source.connect(mainGain);
-        mainGain.gain.setValueAtTime(0.04, ctx.currentTime);
+        }, 130);
+
+        // Start continuous nodes
+        sourceA.start();
+        sourceB.start();
+        flameLFO.start();
+        glowLFO.start();
       }
 
-      source.start();
+      // Smooth master fade-in over 1.5 seconds
+      mainGain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 1.5);
+
     } catch (e) {
       console.error("Failed to start audio engine", e);
     }
@@ -2393,12 +2730,12 @@ export default function App() {
                           </div>
 
                           <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-4 backdrop-blur-md shadow-inner text-left">
-                            {/* 1. 白噪音選擇 */}
+                            {/* 1. 自然環境音選擇 */}
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-xs font-bold text-slate-350">
                                 <span className="flex items-center gap-1.5 select-none">
                                   <Volume2 className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
-                                  自然白噪音引導
+                                  自然環境音
                                 </span>
                                 <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
                                   {breathingNoise === "none" && "已關閉"}
