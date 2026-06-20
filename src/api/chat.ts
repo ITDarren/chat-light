@@ -77,6 +77,8 @@ export async function callChatAPI(messages: ChatMessage[]): Promise<ChatResponse
 【流程狀態指南】：
 1. 【探索階段 (discovery) - 共用】：
    - 剛開始對話時（misunderstoodWord 為空），引導使用者描述最近的生活狀態，或直接給予要釐清的字詞。在此探索階段引言中，答覆（reply）及 suggestions 提示小卡中，絕對不能出現「」或『』等任何引號符號！
+2. 【生活轉念誓約與充能解鎖命令】：
+   - 當使用者傳送包含「轉念實踐契約」、「信心指數」或「承諾誓言」的簽署訊息時，表示使用者已在下方護照完成簽署儀式。你必須立即將 phase 設為 "resolved"，並在 reply 中給予熱切溫柔的肯定與完全充能的解讀祝賀！
 
 【格式與屬性規範】：
 - 必須始終返回合規的 JSON 結構：{"reply": "...", "mode": "...", "phase": "...", "misunderstoodWord": "...", "definitions": ["..."], "sentenceCount": ..., "suggestions": [...]}

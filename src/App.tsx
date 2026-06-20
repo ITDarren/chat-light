@@ -803,7 +803,12 @@ export default function App() {
 
   // Handle TTS for reply
   const speakText = (text: string, messageId?: string) => {
-    if ("speechSynthesis" in window) {
+    try {
+      if (!("speechSynthesis" in window)) {
+        console.warn("speechSynthesis not supported in this browser");
+        return;
+      }
+
       if (messageId && playingMessageId === messageId) {
         window.speechSynthesis.cancel();
         setPlayingMessageId(null);
@@ -844,8 +849,9 @@ export default function App() {
       };
 
       window.speechSynthesis.speak(utterance);
-    } else {
-      alert("您的瀏覽器不支援語音語音朗讀功能");
+    } catch (err) {
+      console.error("Failed to execute speech synthesis speakText:", err);
+      setPlayingMessageId(null);
     }
   };
 
@@ -912,7 +918,9 @@ export default function App() {
 
       setMessages((prev) => [...prev, newAssistantMsg]);
       setSession({
-        phase: data.phase || "discovery",
+        phase: (rawTxt.includes("轉念實踐契約") || rawTxt.includes("承諾誓言")) && data.mode === "life"
+          ? "resolved"
+          : (data.phase || "discovery"),
         mode: data.mode,
         misunderstoodWord: data.misunderstoodWord || "",
         definitions: data.definitions || [],
@@ -993,7 +1001,7 @@ export default function App() {
         {/* Right Side / Mobile & tablet workspace (Takes full screen conditionally) */}
         <div
           id="workspace_container"
-          className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden relative"
+          className="flex-1 flex flex-col min-h-0 bg-slate-50 overflow-hidden relative"
         >
 
           <AnimatePresence mode="wait">
@@ -1170,7 +1178,7 @@ export default function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden"
+                className="flex-1 flex flex-col min-h-0 bg-slate-50 overflow-hidden"
               >
                 {/* Header bar */}
                 <div className="bg-white border-b border-slate-100 p-2 flex items-center justify-between shadow-xs shrink-0 relative">
@@ -1751,6 +1759,7 @@ export default function App() {
                       <ReframingCards
                         misunderstoodWord={session.misunderstoodWord}
                         onComplete={(vow, confidence, signature) => {
+                          setSession((prev) => ({ ...prev, phase: "resolved" }));
                           handleSendMessage(`信心指數高達 ${confidence}%！承諾誓言是：『${vow}』`);
                           saveJournal(signature, confidence, getCategoryVow(session.misunderstoodWord));
                         }}
@@ -1801,7 +1810,7 @@ export default function App() {
                 )}
 
                 {/* Sticky bottom send bar */}
-                <div className="p-2 px-4 bg-white border-t border-slate-100 flex items-center min-h-[64px] shrink-0 relative overflow-hidden">
+                <div className="pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] px-4 bg-white border-t border-slate-100 flex items-center min-h-[64px] shrink-0 relative overflow-hidden">
                   <AnimatePresence mode="wait">
                     {isRecording ? (
                       /* ---------------- VOICE RECORDING MODE ---------------- */
