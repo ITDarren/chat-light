@@ -35,7 +35,9 @@ import {
   RefreshCw,
   Download,
   Sliders,
-  Smartphone
+  Smartphone,
+  Music,
+  Repeat
 } from "lucide-react";
 import ReframingCards, { getReframingCards, getCategoryVow } from "./components/ReframingCards";
 
@@ -73,37 +75,38 @@ export default function App() {
 
   // Deep breathing 4-7-8 states
   const [showBreathingModal, setShowBreathingModal] = useState<boolean>(false);
-  const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale" | "ready">("ready");
+  const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale" | "rest" | "ready">("ready");
   const [breathingTimer, setBreathingTimer] = useState<number>(0);
   const [breathingCycle, setBreathingCycle] = useState<number>(1);
 
-  // New breathing preferences (persist to localStorage)
-  const [breathingNoise, setBreathingNoise] = useState<"none" | "ocean" | "rain" | "campfire">(() => {
-    return (localStorage.getItem("chatlight_breath_noise") as any) || "none";
+  // 呼吸輔助引導單選模式 state (ambient=自然環境音, voice=人聲語音, metronome=節拍提示音, vibrate=手機震動, none=關閉)
+  const [breathingGuideType, setBreathingGuideType] = useState<"ambient" | "voice" | "metronome" | "vibrate" | "none">(() => {
+    return (localStorage.getItem("chatlight_breath_guide_type") as any) || "ambient";
   });
-  const [breathingVoice, setBreathingVoice] = useState<boolean>(() => {
-    return localStorage.getItem("chatlight_breath_voice") !== "false";
+
+  // 循環設定 state (minutes=n分鐘, cycles=n次, infinite=無限循環)
+  const [breathingLoopType, setBreathingLoopType] = useState<"minutes" | "cycles" | "infinite">(() => {
+    return (localStorage.getItem("chatlight_breath_loop_type") as any) || "cycles";
   });
-  const [breathingVibrate, setBreathingVibrate] = useState<boolean>(() => {
-    return localStorage.getItem("chatlight_breath_vibrate") !== "false";
-  });
-  const [breathingMetronome, setBreathingMetronome] = useState<boolean>(() => {
-    return localStorage.getItem("chatlight_breath_metronome") !== "false";
+
+  // 循環設定數值 state (對應分鐘數或次數)
+  const [breathingLoopValue, setBreathingLoopValue] = useState<number>(() => {
+    const val = localStorage.getItem("chatlight_breath_loop_value");
+    return val ? parseInt(val, 10) : 4;
   });
 
   // Sync settings to localStorage
   useEffect(() => {
-    localStorage.setItem("chatlight_breath_noise", breathingNoise);
-  }, [breathingNoise]);
+    localStorage.setItem("chatlight_breath_guide_type", breathingGuideType);
+  }, [breathingGuideType]);
+
   useEffect(() => {
-    localStorage.setItem("chatlight_breath_voice", String(breathingVoice));
-  }, [breathingVoice]);
+    localStorage.setItem("chatlight_breath_loop_type", breathingLoopType);
+  }, [breathingLoopType]);
+
   useEffect(() => {
-    localStorage.setItem("chatlight_breath_vibrate", String(breathingVibrate));
-  }, [breathingVibrate]);
-  useEffect(() => {
-    localStorage.setItem("chatlight_breath_metronome", String(breathingMetronome));
-  }, [breathingMetronome]);
+    localStorage.setItem("chatlight_breath_loop_value", String(breathingLoopValue));
+  }, [breathingLoopValue]);
 
   // Audio Context and Node refs for sound generation
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -180,9 +183,8 @@ export default function App() {
     audioParamsRef.current = null;
   };
 
-  const startAudioEngine = (noiseType: "none" | "ocean" | "rain" | "campfire") => {
+  const startAudioEngine = () => {
     stopAllAudio();
-    if (noiseType === "none") return;
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -190,510 +192,75 @@ export default function App() {
       const ctx = new AudioCtx();
       audioCtxRef.current = ctx;
 
-      // Master gain node (faded from 0 to 1 over 1.5 seconds)
+      // Master gain node
       const mainGain = ctx.createGain();
       mainGain.gain.setValueAtTime(0.0, ctx.currentTime);
       mainGain.connect(ctx.destination);
       noiseGainNodeRef.current = mainGain;
 
-      if (noiseType === "ocean") {
-        const pinkBuffer = createPinkNoiseBuffer(ctx);
+      // Primary synth voice: Triangle wave for soft, flute-like tone
+      const osc = ctx.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
 
-        // Layer A: Low wave swell (Left-ish)
-        const sourceA = ctx.createBufferSource();
-        sourceA.buffer = pinkBuffer;
-        sourceA.loop = true;
-        noiseSourceRef.current = sourceA;
+      // Lowpass filter to keep the tone warm and smooth
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(300, ctx.currentTime);
 
-        const filterA = ctx.createBiquadFilter();
-        filterA.type = "lowpass";
-        filterA.frequency.value = 350;
+      // Sub-oscillator for warmth (Sine wave, 1 octave lower)
+      const subOsc = ctx.createOscillator();
+      subOsc.type = "sine";
+      subOsc.frequency.setValueAtTime(110, ctx.currentTime);
 
-        const gainA = ctx.createGain();
-        gainA.gain.value = 0.05; // Base gain
+      // Voice gain node
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.setValueAtTime(0.0, ctx.currentTime);
 
-        // LFO A to modulate gain (slow tide cycle ~16 seconds)
-        const lfoA = ctx.createOscillator();
-        lfoA.frequency.value = 0.062;
-        const lfoGainA = ctx.createGain();
-        lfoGainA.gain.value = 0.045; // oscillates between 0.005 and 0.095
+      // Connect synth
+      osc.connect(filter);
+      subOsc.connect(filter);
+      filter.connect(voiceGain);
+      voiceGain.connect(mainGain);
 
-        lfoA.connect(lfoGainA);
-        lfoGainA.connect(gainA.gain);
+      // Noise generator for exhale whoosh (pink noise)
+      const pinkBuffer = createPinkNoiseBuffer(ctx);
+      const noiseSource = ctx.createBufferSource();
+      noiseSource.buffer = pinkBuffer;
+      noiseSource.loop = true;
+      noiseSourceRef.current = noiseSource;
 
-        sourceA.connect(filterA);
-        filterA.connect(gainA);
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.setValueAtTime(400, ctx.currentTime);
+      noiseFilter.Q.setValueAtTime(1.0, ctx.currentTime);
 
-        const pannerA = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-        if (pannerA) {
-          pannerA.pan.value = -0.5;
-          gainA.connect(pannerA);
-          pannerA.connect(mainGain);
-        } else {
-          gainA.connect(mainGain);
-        }
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.0, ctx.currentTime);
 
-        // Layer B: Mid wave swell (Right-ish)
-        const sourceB = ctx.createBufferSource();
-        sourceB.buffer = pinkBuffer;
-        sourceB.loop = true;
+      noiseSource.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(mainGain);
 
-        const filterB = ctx.createBiquadFilter();
-        filterB.type = "lowpass";
-        filterB.frequency.value = 450;
+      // Start sources
+      osc.start();
+      subOsc.start();
+      noiseSource.start();
 
-        const gainB = ctx.createGain();
-        gainB.gain.value = 0.05; // Base gain
+      // Master fade-in
+      mainGain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.5);
 
-        // LFO B to modulate gain (slow tide cycle ~13 seconds)
-        const lfoB = ctx.createOscillator();
-        lfoB.frequency.value = 0.077;
-        const lfoGainB = ctx.createGain();
-        lfoGainB.gain.value = 0.045; // oscillates between 0.005 and 0.095
-
-        lfoB.connect(lfoGainB);
-        lfoGainB.connect(gainB.gain);
-
-        sourceB.connect(filterB);
-        filterB.connect(gainB);
-
-        const pannerB = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-        if (pannerB) {
-          pannerB.pan.value = 0.5;
-          gainB.connect(pannerB);
-          pannerB.connect(mainGain);
-        } else {
-          gainB.connect(mainGain);
-        }
-
-        // Layer C: High wash foam (Stereo Sweep)
-        const sourceC = ctx.createBufferSource();
-        sourceC.buffer = pinkBuffer;
-        sourceC.loop = true;
-
-        const filterC = ctx.createBiquadFilter();
-        filterC.type = "bandpass";
-        filterC.frequency.value = 1500;
-        filterC.Q.value = 0.8;
-
-        const gainC = ctx.createGain();
-        gainC.gain.value = 0.015; // Base gain
-
-        // LFO C to modulate gain (~9 seconds)
-        const lfoC = ctx.createOscillator();
-        lfoC.frequency.value = 0.11;
-        const lfoGainC = ctx.createGain();
-        lfoGainC.gain.value = 0.012; // oscillates between 0.003 and 0.027
-
-        lfoC.connect(lfoGainC);
-        lfoGainC.connect(gainC.gain);
-
-        sourceC.connect(filterC);
-        filterC.connect(gainC);
-
-        const pannerC = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-        if (pannerC) {
-          // LFO to sweep panning from left to right (~25 seconds)
-          const lfoPan = ctx.createOscillator();
-          lfoPan.frequency.value = 0.04;
-          const lfoPanGain = ctx.createGain();
-          lfoPanGain.gain.value = 0.7; // sweep pan between -0.7 and +0.7
-          
-          lfoPan.connect(lfoPanGain);
-          lfoPanGain.connect(pannerC.pan);
-          lfoPan.start();
-
-          gainC.connect(pannerC);
-          pannerC.connect(mainGain);
-        } else {
-          gainC.connect(mainGain);
-        }
-
-        // Reverb/reflection effect (Delay Line feedback loop)
-        const delay = ctx.createDelay();
-        delay.delayTime.value = 0.15; // 150ms delay
-        const delayGain = ctx.createGain();
-        delayGain.gain.value = 0.25; // feedback volume
-
-        mainGain.connect(delay);
-        delay.connect(delayGain);
-        delayGain.connect(delay); // feedback loop
-        delayGain.connect(ctx.destination); // send wet signal to destination
-
-        // Start all continuous nodes
-        sourceA.start();
-        sourceB.start();
-        sourceC.start();
-        lfoA.start();
-        lfoB.start();
-        lfoC.start();
-
-        // Save parameters for dynamic phase modulation
-        audioParamsRef.current = {
-          type: "ocean",
-          gainA,
-          gainB,
-          ctx
-        };
-
-      } else if (noiseType === "rain") {
-        // --- FOREST (河流, 鳥鳴) ---
-        const pinkBuffer = createPinkNoiseBuffer(ctx);
-        const timers: any[] = [];
-        crackleIntervalRef.current = timers;
-
-        // River continuous source A (flowing pink noise, left-ish)
-        const sourceA = ctx.createBufferSource();
-        sourceA.buffer = pinkBuffer;
-        sourceA.loop = true;
-        noiseSourceRef.current = sourceA;
-
-        const filterA = ctx.createBiquadFilter();
-        filterA.type = "bandpass";
-        filterA.frequency.value = 550;
-        filterA.Q.value = 0.6;
-
-        const gainA = ctx.createGain();
-        gainA.gain.value = 0.08;
-
-        // Modulate filter frequency slowly to sound like shifting water currents
-        const lfoRiver = ctx.createOscillator();
-        lfoRiver.frequency.value = 0.15;
-        const lfoRiverGain = ctx.createGain();
-        lfoRiverGain.gain.value = 120; // sweep +/- 120Hz
-        
-        lfoRiver.connect(lfoRiverGain);
-        lfoRiverGain.connect(filterA.frequency);
-
-        sourceA.connect(filterA);
-        filterA.connect(gainA);
-
-        const pannerA = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-        if (pannerA) {
-          pannerA.pan.value = -0.2;
-          gainA.connect(pannerA);
-          pannerA.connect(mainGain);
-        } else {
-          gainA.connect(mainGain);
-        }
-
-        // River continuous source B (higher splash sheen, right-ish)
-        const sourceB = ctx.createBufferSource();
-        sourceB.buffer = pinkBuffer;
-        sourceB.loop = true;
-
-        const filterB = ctx.createBiquadFilter();
-        filterB.type = "bandpass";
-        filterB.frequency.value = 900;
-        filterB.Q.value = 0.5;
-
-        const gainB = ctx.createGain();
-        gainB.gain.value = 0.03;
-
-        sourceB.connect(filterB);
-        filterB.connect(gainB);
-
-        const pannerB = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-        if (pannerB) {
-          pannerB.pan.value = 0.4;
-          gainB.connect(pannerB);
-          pannerB.connect(mainGain);
-        } else {
-          gainB.connect(mainGain);
-        }
-
-        // Water bubbling
-        const bubbleTimer = setInterval(() => {
-          if (ctx.state === "suspended") return;
-          if (Math.random() > 0.45) return;
-
-          const osc = ctx.createOscillator();
-          const gainNode = ctx.createGain();
-          osc.type = "sine";
-
-          const startFreq = 160 + Math.random() * 90;
-          const endFreq = startFreq * (1.8 + Math.random() * 1.5);
-          osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + 0.09);
-
-          gainNode.gain.setValueAtTime(0.0, ctx.currentTime);
-          gainNode.gain.linearRampToValueAtTime(0.012 + Math.random() * 0.015, ctx.currentTime + 0.02);
-          gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09);
-
-          const bubblePanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-          if (bubblePanner) {
-            bubblePanner.pan.value = Math.random() * 1.2 - 0.6;
-            osc.connect(gainNode);
-            gainNode.connect(bubblePanner);
-            bubblePanner.connect(mainGain);
-          } else {
-            osc.connect(gainNode);
-            gainNode.connect(mainGain);
-          }
-
-          osc.start();
-          osc.stop(ctx.currentTime + 0.15);
-        }, 180);
-        timers.push(bubbleTimer);
-
-        // Bird chirping helper
-        const triggerBirdSong = (isSoft = false) => {
-          if (ctx.state === "suspended") return;
-          const now = ctx.currentTime;
-          const numChirps = isSoft ? 2 : 2 + Math.floor(Math.random() * 3);
-          let chirpTime = now;
-          const birdPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-          if (birdPanner) {
-            birdPanner.pan.value = Math.random() * 1.4 - 0.7;
-          }
-          
-          const baseFreq = 2600 + Math.random() * 1600;
-          const style = Math.random();
-          
-          for (let i = 0; i < numChirps; i++) {
-            const osc = ctx.createOscillator();
-            const gainNode = ctx.createGain();
-            osc.type = "sine";
-            
-            const duration = 0.07 + Math.random() * 0.06;
-            const delayBetween = duration + 0.04 + Math.random() * 0.05;
-            
-            if (style < 0.5) {
-              osc.frequency.setValueAtTime(baseFreq + 900, chirpTime);
-              osc.frequency.exponentialRampToValueAtTime(baseFreq - 400, chirpTime + duration);
-            } else {
-              osc.frequency.setValueAtTime(baseFreq - 200, chirpTime);
-              osc.frequency.linearRampToValueAtTime(baseFreq + 700, chirpTime + duration * 0.4);
-              osc.frequency.exponentialRampToValueAtTime(baseFreq - 500, chirpTime + duration);
-            }
-            
-            gainNode.gain.setValueAtTime(0, chirpTime);
-            const volumeMax = isSoft ? 0.002 + Math.random() * 0.002 : 0.008 + Math.random() * 0.008;
-            gainNode.gain.linearRampToValueAtTime(volumeMax, chirpTime + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.0001, chirpTime + duration);
-            
-            if (birdPanner) {
-              osc.connect(gainNode);
-              gainNode.connect(birdPanner);
-              birdPanner.connect(mainGain);
-            } else {
-              osc.connect(gainNode);
-              gainNode.connect(mainGain);
-            }
-            
-            osc.start(chirpTime);
-            osc.stop(chirpTime + duration + 0.05);
-            
-            chirpTime += delayBetween;
-          }
-        };
-
-        const birdTimer = setInterval(() => {
-          if (Math.random() < 0.5) {
-            triggerBirdSong(false);
-          }
-        }, 5000);
-        timers.push(birdTimer);
-
-        sourceA.start();
-        sourceB.start();
-        lfoRiver.start();
-
-        // Save parameters for dynamic phase modulation
-        audioParamsRef.current = {
-          type: "rain",
-          gainA,
-          gainB,
-          filterA,
-          filterB,
-          triggerBirdSong,
-          ctx
-        };
-
-      } else if (noiseType === "campfire") {
-        // --- MOUNTAIN RAIN (屋簷/葉片落雨聲, 遠雷) ---
-        const pinkBuffer = createPinkNoiseBuffer(ctx);
-        const brownBuffer = createBrownNoiseBuffer(ctx);
-        const timers: any[] = [];
-        crackleIntervalRef.current = timers;
-
-        // Steady rain background (flowing pink noise)
-        const sourceA = ctx.createBufferSource();
-        sourceA.buffer = pinkBuffer;
-        sourceA.loop = true;
-        noiseSourceRef.current = sourceA;
-
-        const filterA = ctx.createBiquadFilter();
-        filterA.type = "lowpass";
-        filterA.frequency.value = 750;
-
-        const gainA = ctx.createGain();
-        gainA.gain.value = 0.08;
-
-        // Slow wind effect modulating gain
-        const lfoWind = ctx.createOscillator();
-        lfoWind.frequency.value = 0.03;
-        const lfoWindGain = ctx.createGain();
-        lfoWindGain.gain.value = 0.025;
-        
-        lfoWind.connect(lfoWindGain);
-        lfoWindGain.connect(gainA.gain);
-
-        sourceA.connect(filterA);
-        filterA.connect(gainA);
-        gainA.connect(mainGain);
-
-        // Pre-generate roof/leaf drip buffer
-        const dropBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
-        const dropData = dropBuffer.getChannelData(0);
-        let lastRandom = 0.0;
-        for (let i = 0; i < dropData.length; i++) {
-          const white = Math.random() * 2 - 1;
-          const decay = Math.exp(-i / (ctx.sampleRate * 0.018));
-          dropData[i] = (white - lastRandom) * decay * 0.45;
-          lastRandom = white;
-        }
-
-        const dropTimer = setInterval(() => {
-          if (ctx.state === "suspended") return;
-          
-          const dropSource = ctx.createBufferSource();
-          dropSource.buffer = dropBuffer;
-          
-          const dropGain = ctx.createGain();
-          const isRoofDrip = Math.random() < 0.45;
-          
-          const dropFilter = ctx.createBiquadFilter();
-          dropFilter.type = "bandpass";
-          
-          if (isRoofDrip) {
-            // Hollow resonant plonk (Roof drip)
-            dropGain.gain.setValueAtTime(0.015 + Math.random() * 0.035, ctx.currentTime);
-            dropFilter.frequency.value = 650 + Math.random() * 550;
-            dropFilter.Q.value = 4.5;
-          } else {
-            // Crisp leaf drop
-            dropGain.gain.setValueAtTime(0.008 + Math.random() * 0.018, ctx.currentTime);
-            dropFilter.frequency.value = 1600 + Math.random() * 2000;
-            dropFilter.Q.value = 1.3;
-          }
-          
-          const dropPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-          if (dropPanner) {
-            dropPanner.pan.value = Math.random() * 1.6 - 0.8;
-            dropSource.connect(dropFilter);
-            dropFilter.connect(dropGain);
-            dropGain.connect(dropPanner);
-            dropPanner.connect(mainGain);
-          } else {
-            dropSource.connect(dropFilter);
-            dropFilter.connect(dropGain);
-            dropGain.connect(mainGain);
-          }
-          dropSource.start();
-        }, 65);
-        timers.push(dropTimer);
-
-        // Distant Low Thunder roll
-        const triggerThunder = () => {
-          if (ctx.state === "suspended") return;
-          const now = ctx.currentTime;
-          const duration = 4.0 + Math.random() * 4.5;
-          
-          const thunderSource = ctx.createBufferSource();
-          thunderSource.buffer = brownBuffer;
-          thunderSource.loop = true;
-          
-          const filter = ctx.createBiquadFilter();
-          filter.type = "lowpass";
-          filter.frequency.value = 55 + Math.random() * 25; // 55Hz - 80Hz rumble
-          
-          const gainNode = ctx.createGain();
-          gainNode.gain.setValueAtTime(0.0, now);
-          
-          // Rumble volume curve
-          gainNode.gain.linearRampToValueAtTime(0.05 + Math.random() * 0.05, now + 1.2 + Math.random() * 0.8);
-          
-          let t = now + 2.0;
-          const endTime = now + duration;
-          while (t < endTime - 1.5) {
-            gainNode.gain.linearRampToValueAtTime(0.025 + Math.random() * 0.055, t);
-            t += 0.3 + Math.random() * 0.4;
-          }
-          
-          gainNode.gain.linearRampToValueAtTime(0.0, endTime);
-          
-          const thunderPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-          if (thunderPanner) {
-            thunderPanner.pan.value = Math.random() * 1.0 - 0.5;
-            thunderSource.connect(filter);
-            filter.connect(gainNode);
-            gainNode.connect(thunderPanner);
-            thunderPanner.connect(mainGain);
-          } else {
-            thunderSource.connect(filter);
-            filter.connect(gainNode);
-            gainNode.connect(mainGain);
-          }
-          
-          thunderSource.start(now);
-          thunderSource.stop(endTime + 0.1);
-        };
-
-        const thunderTimer = setInterval(() => {
-          if (Math.random() < 0.65) {
-            triggerThunder();
-          }
-        }, 14000);
-        timers.push(thunderTimer);
-
-        // Anchor Drip trigger for hold phase tempo anchor
-        const triggerAnchorDrip = () => {
-          if (ctx.state === "suspended") return;
-          const dropSource = ctx.createBufferSource();
-          dropSource.buffer = dropBuffer;
-          
-          const dropGain = ctx.createGain();
-          dropGain.gain.setValueAtTime(0.06, ctx.currentTime);
-          
-          const dropFilter = ctx.createBiquadFilter();
-          dropFilter.type = "bandpass";
-          dropFilter.frequency.value = 1000;
-          dropFilter.Q.value = 7.0; // high Q resonant plop
-          
-          const dropPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-          if (dropPanner) {
-            dropPanner.pan.value = 0.0; // centered for tempo anchoring
-            dropSource.connect(dropFilter);
-            dropFilter.connect(dropGain);
-            dropGain.connect(dropPanner);
-            dropPanner.connect(mainGain);
-          } else {
-            dropSource.connect(dropFilter);
-            dropFilter.connect(dropGain);
-            dropGain.connect(mainGain);
-          }
-          dropSource.start();
-        };
-
-        sourceA.start();
-        lfoWind.start();
-
-        // Trigger one early thunder
-        const initialThunderTimeout = setTimeout(triggerThunder, 1500);
-        timers.push(initialThunderTimeout);
-
-        // Save parameters for dynamic phase modulation
-        audioParamsRef.current = {
-          type: "campfire",
-          mainGain,
-          triggerAnchorDrip,
-          ctx
-        };
-      }
-
-      // Smooth master fade-in over 1.5 seconds
-      mainGain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 1.5);
+      // Save references for dynamic modulation
+      audioParamsRef.current = {
+        ctx,
+        osc,
+        subOsc,
+        filter,
+        voiceGain,
+        noiseGain,
+        noiseFilter,
+        noiseSource
+      };
 
     } catch (e) {
       console.error("Failed to start audio engine", e);
@@ -804,6 +371,8 @@ export default function App() {
     }
 
     const interval = setInterval(() => {
+      const isMetronome = breathingGuideType === "metronome";
+
       if (breathingPhase === "inhale") {
         if (breathingTimer >= 4) {
           // Completed 4 seconds of inhale — transition to hold
@@ -811,25 +380,38 @@ export default function App() {
           setBreathingTimer(1);
         } else {
           // Metronome tick during phase
-          if (breathingMetronome) playTone(440, 0.08, 0.18);
+          if (isMetronome) playTone(440, 0.08, 0.18);
           setBreathingTimer((t) => t + 1);
         }
       } else if (breathingPhase === "hold") {
-        if (audioParamsRef.current && audioParamsRef.current.type === "campfire" && audioParamsRef.current.triggerAnchorDrip) {
-          audioParamsRef.current.triggerAnchorDrip();
-        }
         if (breathingTimer >= 7) {
           // Completed 7 seconds of hold — transition to exhale
           setBreathingPhase("exhale");
           setBreathingTimer(1);
         } else {
-          if (breathingMetronome) playTone(330, 0.08, 0.12);
+          if (isMetronome) playTone(330, 0.08, 0.12);
           setBreathingTimer((t) => t + 1);
         }
       } else if (breathingPhase === "exhale") {
         if (breathingTimer >= 8) {
-          // Completed 8 seconds of exhale
-          if (breathingCycle >= 4) {
+          // Completed 8 seconds of exhale — transition to rest (間歇)
+          setBreathingPhase("rest");
+          setBreathingTimer(1);
+        } else {
+          if (isMetronome) playTone(260, 0.08, 0.10);
+          setBreathingTimer((t) => t + 1);
+        }
+      } else if (breathingPhase === "rest") {
+        // Rest is 1 second
+        if (breathingTimer >= 1) {
+          const targetCycles =
+            breathingLoopType === "cycles"
+              ? breathingLoopValue
+              : breathingLoopType === "minutes"
+              ? Math.ceil((breathingLoopValue * 60) / 20)
+              : Infinity;
+
+          if (breathingCycle >= targetCycles) {
             setBreathingPhase("ready");
             setBreathingCycle(1);
             setBreathingTimer(0);
@@ -841,10 +423,10 @@ export default function App() {
               });
             } catch (e) { }
             // Completion Feedback
-            if (breathingVibrate && navigator.vibrate) {
+            if (breathingGuideType === "vibrate" && navigator.vibrate) {
               try { navigator.vibrate([100, 80, 100, 80, 300]); } catch (e) {}
             }
-            if (breathingVoice && window.speechSynthesis) {
+            if (breathingGuideType === "voice" && window.speechSynthesis) {
               try {
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance("引導結束，做得好！");
@@ -859,14 +441,13 @@ export default function App() {
             setBreathingTimer(1);
           }
         } else {
-          if (breathingMetronome) playTone(260, 0.08, 0.10);
           setBreathingTimer((t) => t + 1);
         }
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showBreathingModal, breathingPhase, breathingTimer, breathingCycle, breathingVibrate, breathingVoice, breathingMetronome]);
+  }, [showBreathingModal, breathingPhase, breathingTimer, breathingCycle, breathingGuideType, breathingLoopType, breathingLoopValue]);
 
   // Manage phase transitions: voice, vibration, phase-change cue tones
   useEffect(() => {
@@ -882,7 +463,7 @@ export default function App() {
     }
 
     // 1. Vibration Feedback on phase change
-    if (breathingVibrate && navigator.vibrate) {
+    if (breathingGuideType === "vibrate" && navigator.vibrate) {
       try {
         if (breathingPhase === "inhale") {
           navigator.vibrate(120);
@@ -896,8 +477,8 @@ export default function App() {
       }
     }
 
-    // 2. Phase-change cue tone (played once per phase transition, slightly louder and distinct)
-    if (breathingMetronome) {
+    // 2. Phase-change cue tone (played once per phase transition)
+    if (breathingGuideType === "metronome") {
       if (breathingPhase === "inhale") {
         playTone(528, 0.35, 0.25);  // 528 Hz — warm, uplifting (inhale)
       } else if (breathingPhase === "hold") {
@@ -908,7 +489,7 @@ export default function App() {
     }
 
     // 3. Voice Guidance — simple, no counting
-    if (breathingVoice && window.speechSynthesis) {
+    if (breathingGuideType === "voice" && window.speechSynthesis) {
       try {
         window.speechSynthesis.cancel();
         let text = "";
@@ -928,120 +509,90 @@ export default function App() {
       }
     }
 
-    // 4. Dynamic audio parameters modulation based on current breathing phase
-    if (audioParamsRef.current) {
+    // 4. Dynamic audio parameters modulation based on current breathing phase (Ambient Synthesizer)
+    if (audioParamsRef.current && breathingGuideType === "ambient") {
       const params = audioParamsRef.current;
       const ctx = params.ctx;
       const now = ctx.currentTime;
 
-      if (params.type === "ocean") {
+      try {
+        params.voiceGain.gain.cancelScheduledValues(now);
+        params.noiseGain.gain.cancelScheduledValues(now);
+        params.osc.frequency.cancelScheduledValues(now);
+        params.subOsc.frequency.cancelScheduledValues(now);
+        params.filter.frequency.cancelScheduledValues(now);
+
         if (breathingPhase === "inhale") {
-          // Powerful ease-in wave rushing (ease in over 3.8s)
-          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
-          params.gainA.gain.exponentialRampToValueAtTime(0.12, now + 3.8);
-          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
-          params.gainB.gain.exponentialRampToValueAtTime(0.10, now + 3.9);
+          // Inhale (4s): Pitch rises from 220Hz (A3) to 330Hz (E4)
+          params.osc.frequency.setValueAtTime(220, now);
+          params.osc.frequency.linearRampToValueAtTime(330, now + 4.0);
+
+          params.subOsc.frequency.setValueAtTime(110, now);
+          params.subOsc.frequency.linearRampToValueAtTime(165, now + 4.0);
+
+          // Filter opens from 300Hz to 900Hz
+          params.filter.frequency.setValueAtTime(300, now);
+          params.filter.frequency.exponentialRampToValueAtTime(900, now + 4.0);
+
+          // Voice gain swells from 0 to 0.12
+          params.voiceGain.gain.setValueAtTime(0.0, now);
+          params.voiceGain.gain.linearRampToValueAtTime(0.12, now + 4.0);
+
+          // Soft inhale noise whoosh
+          params.noiseGain.gain.setValueAtTime(0.0, now);
+          params.noiseGain.gain.linearRampToValueAtTime(0.015, now + 2.0);
+          params.noiseGain.gain.linearRampToValueAtTime(0.0, now + 4.0);
+
         } else if (breathingPhase === "hold") {
-          // Low frequency white noise padding
-          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
-          params.gainA.gain.linearRampToValueAtTime(0.05, now + 1.0);
-          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
-          params.gainB.gain.linearRampToValueAtTime(0.05, now + 1.0);
-        } else if (breathingPhase === "exhale") {
-          // Long smooth ease-out (receding wave over 7.8s)
-          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
-          params.gainA.gain.exponentialRampToValueAtTime(0.005, now + 7.8);
-          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
-          params.gainB.gain.exponentialRampToValueAtTime(0.005, now + 7.9);
-        }
-      } else if (params.type === "rain") {
-        if (breathingPhase === "inhale") {
-          // Natural swelling of river sounds
-          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
-          params.gainA.gain.linearRampToValueAtTime(0.12, now + 3.8);
-          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
-          params.gainB.gain.linearRampToValueAtTime(0.05, now + 3.8);
-          
-          // Reset to base filter
-          params.filterA.frequency.setValueAtTime(params.filterA.frequency.value, now);
-          params.filterA.frequency.exponentialRampToValueAtTime(550, now + 2.0);
-        } else if (breathingPhase === "hold") {
-          // Steady water flow with high-frequency clarity
-          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
-          params.gainA.gain.linearRampToValueAtTime(0.08, now + 1.0);
-          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
-          params.gainB.gain.linearRampToValueAtTime(0.04, now + 1.0);
-          
-          // Open filter frequency for clarity
-          params.filterA.frequency.setValueAtTime(params.filterA.frequency.value, now);
-          params.filterA.frequency.exponentialRampToValueAtTime(850, now + 1.5);
-        } else if (breathingPhase === "exhale") {
-          // Dipping volume
-          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
-          params.gainA.gain.exponentialRampToValueAtTime(0.02, now + 3.0);
-          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
-          params.gainB.gain.exponentialRampToValueAtTime(0.008, now + 3.0);
-          
-          // Warmer/darker filter
-          params.filterA.frequency.setValueAtTime(params.filterA.frequency.value, now);
-          params.filterA.frequency.exponentialRampToValueAtTime(400, now + 2.0);
+          // Hold (7s): Pitch stays flat at 330Hz
+          params.osc.frequency.setValueAtTime(330, now);
+          params.subOsc.frequency.setValueAtTime(165, now);
 
-          // Soft bird chirps immediately and scheduled during exhale
-          if (params.triggerBirdSong) {
-            params.triggerBirdSong(true);
-            const t1 = setTimeout(() => {
-              if (audioParamsRef.current?.type === "rain") params.triggerBirdSong(true);
-            }, 3000);
-            const t2 = setTimeout(() => {
-              if (audioParamsRef.current?.type === "rain") params.triggerBirdSong(true);
-            }, 6000);
-            if (Array.isArray(crackleIntervalRef.current)) {
-              crackleIntervalRef.current.push(t1, t2);
-            }
-          }
-        }
-      } else if (params.type === "campfire") {
-        if (breathingPhase === "hold") {
-          // Trigger initial anchor drip at the start of hold phase
-          if (params.triggerAnchorDrip) {
-            params.triggerAnchorDrip();
-          }
+          // Filter closes down slightly to 450Hz for warmth
+          params.filter.frequency.setValueAtTime(params.filter.frequency.value, now);
+          params.filter.frequency.exponentialRampToValueAtTime(450, now + 1.0);
+
+          // Voice gain remains stable
+          params.voiceGain.gain.setValueAtTime(params.voiceGain.gain.value, now);
+          params.voiceGain.gain.linearRampToValueAtTime(0.08, now + 1.0);
+
+          // Noise stays silent
+          params.noiseGain.gain.setValueAtTime(0.0, now);
+
         } else if (breathingPhase === "exhale") {
-          // Trigger deep singing bowl resonance tail fading out during exhale (8s)
-          try {
-            const fundFreq = 160; // G3 pitch
-            const bowlGain = ctx.createGain();
-            bowlGain.gain.setValueAtTime(0.0, now);
-            bowlGain.gain.linearRampToValueAtTime(0.35, now + 0.15); // soft strike attack
-            bowlGain.gain.exponentialRampToValueAtTime(0.0001, now + 7.8); // fade out over 8s
-            bowlGain.connect(params.mainGain);
+          // Exhale (8s): Pitch falls from 330Hz to 180Hz (F3)
+          params.osc.frequency.setValueAtTime(330, now);
+          params.osc.frequency.linearRampToValueAtTime(180, now + 8.0);
 
-            const partials = [
-              { freq: fundFreq, gain: 0.15 },
-              { freq: fundFreq * 1.51, gain: 0.08 },
-              { freq: fundFreq * 2.01, gain: 0.05 },
-              { freq: fundFreq * 2.79, gain: 0.035 },
-              { freq: fundFreq * 3.82, gain: 0.02 }
-            ];
+          params.subOsc.frequency.setValueAtTime(165, now);
+          params.subOsc.frequency.linearRampToValueAtTime(90, now + 8.0);
 
-            partials.forEach((p) => {
-              const osc = ctx.createOscillator();
-              const oscGain = ctx.createGain();
-              osc.type = "sine";
-              osc.frequency.value = p.freq;
-              oscGain.gain.value = p.gain;
-              osc.connect(oscGain);
-              oscGain.connect(bowlGain);
-              osc.start(now);
-              osc.stop(now + 8.0);
-            });
-          } catch (e) {
-            console.error("Singing bowl strike failed", e);
-          }
+          // Filter closes down to 150Hz
+          params.filter.frequency.setValueAtTime(params.filter.frequency.value, now);
+          params.filter.frequency.exponentialRampToValueAtTime(150, now + 8.0);
+
+          // Voice gain decays to 0
+          params.voiceGain.gain.setValueAtTime(0.08, now);
+          params.voiceGain.gain.exponentialRampToValueAtTime(0.001, now + 8.0);
+
+          // Exhale WHOOSH noise: swells up to 0.08 in 2 seconds, then decays slowly to 0
+          params.noiseGain.gain.setValueAtTime(0.0, now);
+          params.noiseGain.gain.linearRampToValueAtTime(0.08, now + 2.0);
+          params.noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 8.0);
+
+        } else if (breathingPhase === "rest") {
+          // Rest (1s): Silence
+          params.voiceGain.gain.setValueAtTime(params.voiceGain.gain.value, now);
+          params.voiceGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
+
+          params.noiseGain.gain.setValueAtTime(params.noiseGain.gain.value, now);
+          params.noiseGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
         }
+      } catch (e) {
+        console.warn("Audio param modulation failed", e);
       }
     }
-  }, [breathingPhase, showBreathingModal, breathingCycle, breathingNoise, breathingVoice, breathingVibrate, breathingMetronome]);
+  }, [breathingPhase, showBreathingModal, breathingCycle, breathingGuideType]);
 
   // Save journal entries helper mapping specific cards
   const saveJournal = (personalVow: string, confidenceVal: number, customVow?: string) => {
@@ -2832,12 +2383,14 @@ export default function App() {
                           {breathingPhase === "inhale" && "🌱 第一步：鼻子吸氣"}
                           {breathingPhase === "hold" && "🪵 第二步：屏住呼吸"}
                           {breathingPhase === "exhale" && "🌊 第三步：嘴巴吐氣"}
+                          {breathingPhase === "rest" && "✨ 第四步：靜心間歇"}
                         </h3>
                         <p className="text-[11px] text-slate-400 leading-relaxed font-semibold px-4">
-                          {breathingPhase === "ready" && "找到舒服姿勢，放鬆肩膀，即可點擊下方按鈕啟動為期 4 次循環的調頻儀式。"}
+                          {breathingPhase === "ready" && "找到舒服姿勢，放鬆肩膀，即可啟動引導調頻儀式。"}
                           {breathingPhase === "inhale" && "緩緩地，用 4 秒鐘將清新的氧氣吸入腹部，感受新鮮溫暖的能量。"}
-                          {breathingPhase === "hold" && "溫和閉氣 7 秒鐘。讓吸入的能量與大腦思維完美交融，淨化心中的急躁。"}
-                          {breathingPhase === "exhale" && "微張嘴巴，花 8 秒鐘緩慢哈氣，將所有焦慮、緊繃與生活卡點通通呼出。"}
+                          {breathingPhase === "hold" && "溫和閉氣 7 秒鐘。讓吸入的能量與大腦思維交融，淨化急躁的心情。"}
+                          {breathingPhase === "exhale" && "微張嘴巴，花 8 秒鐘緩慢哈氣，將所有焦慮與生活卡點通通呼出。"}
+                          {breathingPhase === "rest" && "保持靜止 1 秒鐘。放鬆全身肌肉，靜靜期待下一次新生。"}
                         </p>
                       </motion.div>
                     </AnimatePresence>
@@ -2851,17 +2404,18 @@ export default function App() {
                         <motion.div
                           initial={{ scale: 0.8, opacity: 0.3 }}
                           animate={{
-                            scale: breathingPhase === "inhale" ? [1, 1.8, 1.6] : breathingPhase === "hold" ? [1.6, 1.7, 1.6] : [1.6, 0.9, 1],
+                            scale: breathingPhase === "inhale" ? [1, 1.8, 1.6] : breathingPhase === "hold" ? [1.6, 1.7, 1.6] : breathingPhase === "exhale" ? [1.6, 0.9, 1] : [1, 1, 1],
                             opacity: [0.15, 0.45, 0.15]
                           }}
                           transition={{
-                            duration: breathingPhase === "inhale" ? 4 : breathingPhase === "hold" ? 7 : 8,
+                            duration: breathingPhase === "inhale" ? 4 : breathingPhase === "hold" ? 7 : breathingPhase === "exhale" ? 8 : 1,
                             repeat: Infinity,
                             ease: "easeInOut"
                           }}
                           className={`absolute inset-0 rounded-full blur-2xl filter opacity-20 ${breathingPhase === "inhale" ? "bg-teal-500" :
                             breathingPhase === "hold" ? "bg-amber-500" :
-                              "bg-indigo-500"
+                              breathingPhase === "exhale" ? "bg-indigo-500" :
+                                "bg-slate-500"
                             }`}
                         />
                       )}
@@ -2874,54 +2428,59 @@ export default function App() {
                           breathingPhase === "ready" ? 1.0 :
                             breathingPhase === "inhale" ? 1.6 :
                               breathingPhase === "hold" ? 1.62 : // 微幅脈動
-                                0.95 // 吐乾淨
+                                breathingPhase === "exhale" ? 0.95 :
+                                  1.0 // rest
                       }}
                       transition={{
                         duration:
                           breathingPhase === "ready" ? 2 :
                             breathingPhase === "inhale" ? 4 :
                               breathingPhase === "hold" ? 7 :
-                                8,
-                        ease: "easeInOut"
-                      }}
-                      className={`w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-2xl relative transition-colors duration-1000 border border-white/10 ${breathingPhase === "ready" ? "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-350" :
-                        breathingPhase === "inhale" ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-teal-50" :
-                          breathingPhase === "hold" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-amber-50" :
-                            "bg-gradient-to-br from-indigo-500 to-indigo-600 text-indigo-50"
-                        }`}
-                    >
-                      {/* Pulsing inner core */}
-                      <div className="absolute inset-2 rounded-full border border-white/20 animate-pulse-soft" />
-
-                      {/* Timer and instructions in circle */}
-                      <div className="z-10 select-none text-center space-y-1">
-                        {breathingPhase === "ready" ? (
-                          <div className="flex flex-col items-center justify-center">
-                            <Wind className="w-8 h-8 text-teal-400 mb-1 animate-pulse" />
-                            <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-450">
-                              Ready
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center">
-                            <span className="text-[11px] font-black tracking-wider uppercase opacity-85">
-                              {breathingPhase === "inhale" && "吸氣"}
-                              {breathingPhase === "hold" && "屏氣"}
-                              {breathingPhase === "exhale" && "呼氣"}
-                            </span>
-                            <span className="text-4xl font-black font-mono tracking-tight my-0.5">
-                              {breathingTimer} <span className="text-xs font-normal text-white/70">秒</span>
-                            </span>
-                            <span className="text-[10px] font-medium opacity-60">
-                              {breathingPhase === "inhale" && "/ 4 秒"}
-                              {breathingPhase === "hold" && "/ 7 秒"}
-                              {breathingPhase === "exhale" && "/ 8 秒"}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  </div>
+                                breathingPhase === "exhale" ? 8 :
+                                  1,
+                         ease: "easeInOut"
+                       }}
+                       className={`w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-2xl relative transition-colors duration-1000 border border-white/10 ${breathingPhase === "ready" ? "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-350" :
+                         breathingPhase === "inhale" ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-teal-50" :
+                           breathingPhase === "hold" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-amber-50" :
+                             breathingPhase === "exhale" ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-indigo-50" :
+                               "bg-gradient-to-br from-slate-700 to-slate-800 text-slate-105"
+                         }`}
+                     >
+                       {/* Pulsing inner core */}
+                       <div className="absolute inset-2 rounded-full border border-white/20 animate-pulse-soft" />
+ 
+                       {/* Timer and instructions in circle */}
+                       <div className="z-10 select-none text-center space-y-1">
+                         {breathingPhase === "ready" ? (
+                           <div className="flex flex-col items-center justify-center">
+                             <Wind className="w-8 h-8 text-teal-400 mb-1 animate-pulse" />
+                             <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-450">
+                               Ready
+                             </span>
+                           </div>
+                         ) : (
+                           <div className="flex flex-col items-center justify-center">
+                             <span className="text-[11px] font-black tracking-wider uppercase opacity-85">
+                               {breathingPhase === "inhale" && "吸氣"}
+                               {breathingPhase === "hold" && "屏氣"}
+                               {breathingPhase === "exhale" && "呼氣"}
+                               {breathingPhase === "rest" && "間歇"}
+                             </span>
+                             <span className="text-4xl font-black font-mono tracking-tight my-0.5">
+                               {breathingTimer} <span className="text-xs font-normal text-white/70">秒</span>
+                             </span>
+                             <span className="text-[10px] font-medium opacity-60">
+                               {breathingPhase === "inhale" && "/ 4 秒"}
+                               {breathingPhase === "hold" && "/ 7 秒"}
+                               {breathingPhase === "exhale" && "/ 8 秒"}
+                               {breathingPhase === "rest" && "/ 1 秒"}
+                             </span>
+                           </div>
+                         )}
+                       </div>
+                     </motion.div>
+                   </div>
 
                   {/* Progress Indicators & Cycles count */}
                   <div className="w-full px-8 space-y-4 select-none">
@@ -2930,23 +2489,46 @@ export default function App() {
                         {/* Cycle count tag */}
                         <div className="flex items-center justify-between text-xs font-bold text-slate-450">
                           <span>引導調頻進度</span>
-                          <span className="text-teal-400 text-right">
-                            第 <span className="font-mono text-white text-sm font-extrabold">{breathingCycle}</span> / 4 次循環
+                          <span className="text-teal-400 text-right font-black">
+                            {breathingLoopType === "infinite" ? (
+                              <>第 <span className="font-mono text-white text-sm font-extrabold">{breathingCycle}</span> 次循環 (無限)</>
+                            ) : breathingLoopType === "minutes" ? (
+                              <>第 <span className="font-mono text-white text-sm font-extrabold">{breathingCycle}</span> / <span className="font-mono text-white/80 text-sm font-extrabold">{Math.ceil((breathingLoopValue * 60) / 20)}</span> 次循環 ({breathingLoopValue}分鐘)</>
+                            ) : (
+                              <>第 <span className="font-mono text-white text-sm font-extrabold">{breathingCycle}</span> / <span className="font-mono text-white/80 text-sm font-extrabold">{breathingLoopValue}</span> 次循環</>
+                            )}
                           </span>
                         </div>
 
-                        {/* Cycles dot representation */}
-                        <div className="flex items-center justify-center gap-2">
-                          {[1, 2, 3, 4].map((c) => (
-                            <div
-                              key={c}
-                              className={`h-2 rounded-full transition-all duration-500 ${c < breathingCycle ? "w-6 bg-teal-500" :
-                                c === breathingCycle ? "w-10 bg-teal-400 animate-pulse" :
-                                  "w-2 bg-slate-800"
-                                }`}
+                        {/* Cycles dot representation or progress bar */}
+                        {breathingLoopType === "cycles" && breathingLoopValue <= 8 ? (
+                          <div className="flex items-center justify-center gap-2">
+                            {Array.from({ length: breathingLoopValue }).map((_, idx) => {
+                              const c = idx + 1;
+                              return (
+                                <div
+                                  key={c}
+                                  className={`h-2 rounded-full transition-all duration-500 ${c < breathingCycle ? "w-6 bg-teal-500" :
+                                    c === breathingCycle ? "w-10 bg-teal-400 animate-pulse" :
+                                      "w-2 bg-slate-800"
+                                    }`}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          /* Render a smooth progress bar if it's many cycles or based on time */
+                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-teal-500 transition-all duration-500 rounded-full"
+                              style={{ 
+                                width: breathingLoopType === "infinite" 
+                                  ? "100%" 
+                                  : `${Math.min(100, ((breathingCycle - 1) / (breathingLoopType === "minutes" ? Math.ceil((breathingLoopValue * 60) / 20) : breathingLoopValue)) * 100)}%` 
+                              }}
                             />
-                          ))}
-                        </div>
+                          </div>
+                        )}
 
                         {/* Action status note */}
                         <p className="text-[10px] text-slate-500 italic block text-center pt-1 font-bold">
@@ -2965,102 +2547,166 @@ export default function App() {
                           </div>
 
                           <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-4 backdrop-blur-md shadow-inner text-left">
-                            {/* 1. 自然環境音選擇 */}
+                            {/* 1. 輔助引導模式 (單選) */}
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-xs font-bold text-slate-350">
                                 <span className="flex items-center gap-1.5 select-none">
-                                  <Volume2 className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
-                                  自然環境音
+                                  <Sliders className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
+                                  引導模式 (單選)
                                 </span>
                                 <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
-                                  {breathingNoise === "none" && "已關閉"}
-                                  {breathingNoise === "ocean" && "蔚藍海岸 🌊"}
-                                  {breathingNoise === "rain" && "晨曦林道 🐦"}
-                                  {breathingNoise === "campfire" && "禪院聽雨 🧘"}
+                                  {breathingGuideType === "ambient" && "模擬環境音 🎵"}
+                                  {breathingGuideType === "voice" && "人聲語音 🗣️"}
+                                  {breathingGuideType === "metronome" && "節拍提示音 ⏱️"}
+                                  {breathingGuideType === "vibrate" && "手機震動 📳"}
+                                  {breathingGuideType === "none" && "已關閉 🔇"}
                                 </span>
                               </div>
-                              <div className="grid grid-cols-4 gap-1.5">
-                                {(["none", "ocean", "rain", "campfire"] as const).map((type) => (
-                                  <button
-                                    key={type}
-                                    type="button"
-                                    onClick={() => setBreathingNoise(type)}
-                                    className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${
-                                      breathingNoise === type
-                                        ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                        : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                    }`}
-                                  >
-                                    {type === "none" && "無"}
-                                    {type === "ocean" && "海岸"}
-                                    {type === "rain" && "林道"}
-                                    {type === "campfire" && "聽雨"}
-                                  </button>
-                                ))}
+
+                              <div className="grid grid-cols-2 gap-2">
+                                {[
+                                  { id: "ambient", label: "自然環境音", sub: "模擬 YouTube 靜心", icon: Music },
+                                  { id: "voice", label: "人聲語音", sub: "吸氣/閉氣/吐氣", icon: Mic },
+                                  { id: "metronome", label: "節拍提示音", sub: "柔和換段音效", icon: Volume2 },
+                                  { id: "vibrate", label: "手機震動", sub: "觸覺回饋提醒", icon: Smartphone },
+                                ].map((item) => {
+                                  const Icon = item.icon;
+                                  const active = breathingGuideType === item.id;
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => setBreathingGuideType(item.id as any)}
+                                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${
+                                        active
+                                          ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
+                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                      }`}
+                                    >
+                                      <div className={`p-1.5 rounded-lg ${active ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
+                                        <Icon className="w-3.5 h-3.5" />
+                                      </div>
+                                      <div className="leading-tight">
+                                        <p className="text-[10px] font-black">{item.label}</p>
+                                        <p className="text-[8px] opacity-60 font-bold">{item.sub}</p>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
+
+                              {/* 關閉引導獨立按鈕 */}
+                              <button
+                                type="button"
+                                onClick={() => setBreathingGuideType("none")}
+                                className={`w-full py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                  breathingGuideType === "none"
+                                    ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
+                                    : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                }`}
+                              >
+                                <VolumeX className="w-3.5 h-3.5" />
+                                <span>關閉所有聲音與震動引導</span>
+                              </button>
                             </div>
 
                             {/* 分割線 */}
                             <div className="h-[1px] bg-white/5" />
 
-                            {/* 2. 語音、節拍器、震動 三格開關 */}
-                            <div className="grid grid-cols-3 gap-2">
-                              {/* 人聲語音 */}
-                              <button
-                                type="button"
-                                onClick={() => setBreathingVoice(!breathingVoice)}
-                                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer select-none ${
-                                  breathingVoice
-                                    ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
-                                    : "bg-white/3 border-white/5 text-slate-500"
-                                }`}
-                              >
-                                <div className="p-1.5 rounded-lg bg-black/20">
-                                  {breathingVoice ? <Mic className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" /> : <MicOff className="w-3.5 h-3.5" />}
-                                </div>
-                                <div className="leading-tight">
-                                  <p className="text-[10px] font-black">人聲語音</p>
-                                  <p className="text-[8px] opacity-60 font-bold">吸氣·閉氣·吐氣</p>
-                                </div>
-                              </button>
+                            {/* 2. 循環設定 */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-350">
+                                <span className="flex items-center gap-1.5 select-none">
+                                  <RefreshCw className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
+                                  循環次數 / 時間設定
+                                </span>
+                                <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
+                                  {breathingLoopType === "minutes" && `${breathingLoopValue} 分鐘 ⏳`}
+                                  {breathingLoopType === "cycles" && `${breathingLoopValue} 次循環 🌀`}
+                                  {breathingLoopType === "infinite" && "無限循環 🔂"}
+                                </span>
+                              </div>
 
-                              {/* 節拍器 */}
-                              <button
-                                type="button"
-                                onClick={() => setBreathingMetronome(!breathingMetronome)}
-                                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer select-none ${
-                                  breathingMetronome
-                                    ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
-                                    : "bg-white/3 border-white/5 text-slate-500"
-                                }`}
-                              >
-                                <div className="p-1.5 rounded-lg bg-black/20">
-                                  <Volume2 className={`w-3.5 h-3.5 ${breathingMetronome ? "text-teal-400 animate-pulse-soft" : ""}`} />
-                                </div>
-                                <div className="leading-tight">
-                                  <p className="text-[10px] font-black">節拍提示音</p>
-                                  <p className="text-[8px] opacity-60 font-bold">輕柔換段音效</p>
-                                </div>
-                              </button>
+                              {/* 循環類型選擇 Tab */}
+                              <div className="grid grid-cols-3 gap-1.5 bg-black/20 p-1 rounded-xl border border-white/5">
+                                {[
+                                  { id: "cycles", label: "按次數" },
+                                  { id: "minutes", label: "按時間" },
+                                  { id: "infinite", label: "無限", icon: Repeat }
+                                ].map((tab) => {
+                                  const active = breathingLoopType === tab.id;
+                                  return (
+                                    <button
+                                      key={tab.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setBreathingLoopType(tab.id as any);
+                                        if (tab.id === "cycles") {
+                                          setBreathingLoopValue(4);
+                                        } else if (tab.id === "minutes") {
+                                          setBreathingLoopValue(3);
+                                        }
+                                      }}
+                                      className={`py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                                        active
+                                          ? "bg-teal-500/15 text-teal-350 border border-teal-500/20"
+                                          : "text-slate-400 hover:text-white border border-transparent"
+                                      }`}
+                                    >
+                                      {tab.id === "infinite" && <Repeat className="w-3 h-3" />}
+                                      <span>{tab.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
 
-                              {/* 震動 */}
-                              <button
-                                type="button"
-                                onClick={() => setBreathingVibrate(!breathingVibrate)}
-                                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer select-none ${
-                                  breathingVibrate
-                                    ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
-                                    : "bg-white/3 border-white/5 text-slate-500"
-                                }`}
-                              >
-                                <div className="p-1.5 rounded-lg bg-black/20">
-                                  <Smartphone className={`w-3.5 h-3.5 ${breathingVibrate ? "text-teal-400 animate-bounce-soft" : ""}`} />
+                              {/* 數值選擇按鈕組 */}
+                              {breathingLoopType === "cycles" && (
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  {[4, 8, 16, 32].map((cycles) => (
+                                    <button
+                                      key={cycles}
+                                      type="button"
+                                      onClick={() => setBreathingLoopValue(cycles)}
+                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${
+                                        breathingLoopValue === cycles
+                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
+                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                      }`}
+                                    >
+                                      {cycles}次
+                                    </button>
+                                  ))}
                                 </div>
-                                <div className="leading-tight">
-                                  <p className="text-[10px] font-black">手機震動</p>
-                                  <p className="text-[8px] opacity-60 font-bold">觸覺回饋提醒</p>
+                              )}
+
+                              {breathingLoopType === "minutes" && (
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  {[1, 3, 5, 10].map((min) => (
+                                    <button
+                                      key={min}
+                                      type="button"
+                                      onClick={() => setBreathingLoopValue(min)}
+                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${
+                                        breathingLoopValue === min
+                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
+                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                      }`}
+                                    >
+                                      {min}分鐘
+                                    </button>
+                                  ))}
                                 </div>
-                              </button>
+                              )}
+
+                              {breathingLoopType === "infinite" && (
+                                <div className="p-2 rounded-xl bg-white/2 border border-white/5 text-center">
+                                  <p className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1.5 leading-relaxed">
+                                    <Repeat className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
+                                    無限循環模式：將持續引導直到點擊「結束返回」。
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3068,12 +2714,14 @@ export default function App() {
                         {/* 啟動按鈕 */}
                         <button
                           onClick={() => {
-                            if (breathingVibrate && navigator.vibrate) {
+                            if (breathingGuideType === "vibrate" && navigator.vibrate) {
                               try {
                                 navigator.vibrate(100);
                               } catch (e) {}
                             }
-                            startAudioEngine(breathingNoise);
+                            if (breathingGuideType === "ambient") {
+                              startAudioEngine();
+                            }
                             setBreathingPhase("inhale");
                             setBreathingCycle(1);
                             setBreathingTimer(1);
