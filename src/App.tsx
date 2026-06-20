@@ -109,6 +109,7 @@ export default function App() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const noiseSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const noiseGainNodeRef = useRef<GainNode | null>(null);
+  const audioParamsRef = useRef<any>(null);
   const crackleIntervalRef = useRef<any>(null);
   const metronomeIntervalRef = useRef<any>(null);
   const metronomeCtxRef = useRef<AudioContext | null>(null);
@@ -176,6 +177,7 @@ export default function App() {
       audioCtxRef.current = null;
     }
     noiseGainNodeRef.current = null;
+    audioParamsRef.current = null;
   };
 
   const startAudioEngine = (noiseType: "none" | "ocean" | "rain" | "campfire") => {
@@ -326,6 +328,14 @@ export default function App() {
         lfoB.start();
         lfoC.start();
 
+        // Save parameters for dynamic phase modulation
+        audioParamsRef.current = {
+          type: "ocean",
+          gainA,
+          gainB,
+          ctx
+        };
+
       } else if (noiseType === "rain") {
         // --- FOREST (河流, 鳥鳴) ---
         const pinkBuffer = createPinkNoiseBuffer(ctx);
@@ -426,11 +436,11 @@ export default function App() {
         }, 180);
         timers.push(bubbleTimer);
 
-        // Bird chirping
-        const triggerBirdSong = () => {
+        // Bird chirping helper
+        const triggerBirdSong = (isSoft = false) => {
           if (ctx.state === "suspended") return;
           const now = ctx.currentTime;
-          const numChirps = 2 + Math.floor(Math.random() * 3);
+          const numChirps = isSoft ? 2 : 2 + Math.floor(Math.random() * 3);
           let chirpTime = now;
           const birdPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
           if (birdPanner) {
@@ -458,7 +468,8 @@ export default function App() {
             }
             
             gainNode.gain.setValueAtTime(0, chirpTime);
-            gainNode.gain.linearRampToValueAtTime(0.008 + Math.random() * 0.008, chirpTime + 0.01);
+            const volumeMax = isSoft ? 0.002 + Math.random() * 0.002 : 0.008 + Math.random() * 0.008;
+            gainNode.gain.linearRampToValueAtTime(volumeMax, chirpTime + 0.01);
             gainNode.gain.exponentialRampToValueAtTime(0.0001, chirpTime + duration);
             
             if (birdPanner) {
@@ -478,8 +489,8 @@ export default function App() {
         };
 
         const birdTimer = setInterval(() => {
-          if (Math.random() < 0.65) {
-            triggerBirdSong();
+          if (Math.random() < 0.5) {
+            triggerBirdSong(false);
           }
         }, 5000);
         timers.push(birdTimer);
@@ -487,6 +498,17 @@ export default function App() {
         sourceA.start();
         sourceB.start();
         lfoRiver.start();
+
+        // Save parameters for dynamic phase modulation
+        audioParamsRef.current = {
+          type: "rain",
+          gainA,
+          gainB,
+          filterA,
+          filterB,
+          triggerBirdSong,
+          ctx
+        };
 
       } else if (noiseType === "campfire") {
         // --- MOUNTAIN RAIN (屋簷/葉片落雨聲, 遠雷) ---
@@ -625,12 +647,49 @@ export default function App() {
         }, 14000);
         timers.push(thunderTimer);
 
+        // Anchor Drip trigger for hold phase tempo anchor
+        const triggerAnchorDrip = () => {
+          if (ctx.state === "suspended") return;
+          const dropSource = ctx.createBufferSource();
+          dropSource.buffer = dropBuffer;
+          
+          const dropGain = ctx.createGain();
+          dropGain.gain.setValueAtTime(0.06, ctx.currentTime);
+          
+          const dropFilter = ctx.createBiquadFilter();
+          dropFilter.type = "bandpass";
+          dropFilter.frequency.value = 1000;
+          dropFilter.Q.value = 7.0; // high Q resonant plop
+          
+          const dropPanner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+          if (dropPanner) {
+            dropPanner.pan.value = 0.0; // centered for tempo anchoring
+            dropSource.connect(dropFilter);
+            dropFilter.connect(dropGain);
+            dropGain.connect(dropPanner);
+            dropPanner.connect(mainGain);
+          } else {
+            dropSource.connect(dropFilter);
+            dropFilter.connect(dropGain);
+            dropGain.connect(mainGain);
+          }
+          dropSource.start();
+        };
+
         sourceA.start();
         lfoWind.start();
 
         // Trigger one early thunder
         const initialThunderTimeout = setTimeout(triggerThunder, 1500);
         timers.push(initialThunderTimeout);
+
+        // Save parameters for dynamic phase modulation
+        audioParamsRef.current = {
+          type: "campfire",
+          mainGain,
+          triggerAnchorDrip,
+          ctx
+        };
       }
 
       // Smooth master fade-in over 1.5 seconds
@@ -756,6 +815,9 @@ export default function App() {
           setBreathingTimer((t) => t + 1);
         }
       } else if (breathingPhase === "hold") {
+        if (audioParamsRef.current && audioParamsRef.current.type === "campfire" && audioParamsRef.current.triggerAnchorDrip) {
+          audioParamsRef.current.triggerAnchorDrip();
+        }
         if (breathingTimer >= 7) {
           // Completed 7 seconds of hold — transition to exhale
           setBreathingPhase("exhale");
@@ -863,6 +925,120 @@ export default function App() {
         }
       } catch (e) {
         console.error("SpeechSynthesis failed", e);
+      }
+    }
+
+    // 4. Dynamic audio parameters modulation based on current breathing phase
+    if (audioParamsRef.current) {
+      const params = audioParamsRef.current;
+      const ctx = params.ctx;
+      const now = ctx.currentTime;
+
+      if (params.type === "ocean") {
+        if (breathingPhase === "inhale") {
+          // Powerful ease-in wave rushing (ease in over 3.8s)
+          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
+          params.gainA.gain.exponentialRampToValueAtTime(0.12, now + 3.8);
+          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
+          params.gainB.gain.exponentialRampToValueAtTime(0.10, now + 3.9);
+        } else if (breathingPhase === "hold") {
+          // Low frequency white noise padding
+          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
+          params.gainA.gain.linearRampToValueAtTime(0.05, now + 1.0);
+          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
+          params.gainB.gain.linearRampToValueAtTime(0.05, now + 1.0);
+        } else if (breathingPhase === "exhale") {
+          // Long smooth ease-out (receding wave over 7.8s)
+          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
+          params.gainA.gain.exponentialRampToValueAtTime(0.005, now + 7.8);
+          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
+          params.gainB.gain.exponentialRampToValueAtTime(0.005, now + 7.9);
+        }
+      } else if (params.type === "rain") {
+        if (breathingPhase === "inhale") {
+          // Natural swelling of river sounds
+          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
+          params.gainA.gain.linearRampToValueAtTime(0.12, now + 3.8);
+          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
+          params.gainB.gain.linearRampToValueAtTime(0.05, now + 3.8);
+          
+          // Reset to base filter
+          params.filterA.frequency.setValueAtTime(params.filterA.frequency.value, now);
+          params.filterA.frequency.exponentialRampToValueAtTime(550, now + 2.0);
+        } else if (breathingPhase === "hold") {
+          // Steady water flow with high-frequency clarity
+          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
+          params.gainA.gain.linearRampToValueAtTime(0.08, now + 1.0);
+          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
+          params.gainB.gain.linearRampToValueAtTime(0.04, now + 1.0);
+          
+          // Open filter frequency for clarity
+          params.filterA.frequency.setValueAtTime(params.filterA.frequency.value, now);
+          params.filterA.frequency.exponentialRampToValueAtTime(850, now + 1.5);
+        } else if (breathingPhase === "exhale") {
+          // Dipping volume
+          params.gainA.gain.setValueAtTime(params.gainA.gain.value, now);
+          params.gainA.gain.exponentialRampToValueAtTime(0.02, now + 3.0);
+          params.gainB.gain.setValueAtTime(params.gainB.gain.value, now);
+          params.gainB.gain.exponentialRampToValueAtTime(0.008, now + 3.0);
+          
+          // Warmer/darker filter
+          params.filterA.frequency.setValueAtTime(params.filterA.frequency.value, now);
+          params.filterA.frequency.exponentialRampToValueAtTime(400, now + 2.0);
+
+          // Soft bird chirps immediately and scheduled during exhale
+          if (params.triggerBirdSong) {
+            params.triggerBirdSong(true);
+            const t1 = setTimeout(() => {
+              if (audioParamsRef.current?.type === "rain") params.triggerBirdSong(true);
+            }, 3000);
+            const t2 = setTimeout(() => {
+              if (audioParamsRef.current?.type === "rain") params.triggerBirdSong(true);
+            }, 6000);
+            if (Array.isArray(crackleIntervalRef.current)) {
+              crackleIntervalRef.current.push(t1, t2);
+            }
+          }
+        }
+      } else if (params.type === "campfire") {
+        if (breathingPhase === "hold") {
+          // Trigger initial anchor drip at the start of hold phase
+          if (params.triggerAnchorDrip) {
+            params.triggerAnchorDrip();
+          }
+        } else if (breathingPhase === "exhale") {
+          // Trigger deep singing bowl resonance tail fading out during exhale (8s)
+          try {
+            const fundFreq = 160; // G3 pitch
+            const bowlGain = ctx.createGain();
+            bowlGain.gain.setValueAtTime(0.0, now);
+            bowlGain.gain.linearRampToValueAtTime(0.35, now + 0.15); // soft strike attack
+            bowlGain.gain.exponentialRampToValueAtTime(0.0001, now + 7.8); // fade out over 8s
+            bowlGain.connect(params.mainGain);
+
+            const partials = [
+              { freq: fundFreq, gain: 0.15 },
+              { freq: fundFreq * 1.51, gain: 0.08 },
+              { freq: fundFreq * 2.01, gain: 0.05 },
+              { freq: fundFreq * 2.79, gain: 0.035 },
+              { freq: fundFreq * 3.82, gain: 0.02 }
+            ];
+
+            partials.forEach((p) => {
+              const osc = ctx.createOscillator();
+              const oscGain = ctx.createGain();
+              osc.type = "sine";
+              osc.frequency.value = p.freq;
+              oscGain.gain.value = p.gain;
+              osc.connect(oscGain);
+              oscGain.connect(bowlGain);
+              osc.start(now);
+              osc.stop(now + 8.0);
+            });
+          } catch (e) {
+            console.error("Singing bowl strike failed", e);
+          }
+        }
       }
     }
   }, [breathingPhase, showBreathingModal, breathingCycle, breathingNoise, breathingVoice, breathingVibrate, breathingMetronome]);
@@ -2798,9 +2974,9 @@ export default function App() {
                                 </span>
                                 <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
                                   {breathingNoise === "none" && "已關閉"}
-                                  {breathingNoise === "ocean" && "海洋波濤 🌊"}
-                                  {breathingNoise === "rain" && "森林溪流 🐦"}
-                                  {breathingNoise === "campfire" && "山谷落雨 🌧️"}
+                                  {breathingNoise === "ocean" && "蔚藍海岸 🌊"}
+                                  {breathingNoise === "rain" && "晨曦林道 🐦"}
+                                  {breathingNoise === "campfire" && "禪院聽雨 🧘"}
                                 </span>
                               </div>
                               <div className="grid grid-cols-4 gap-1.5">
@@ -2816,9 +2992,9 @@ export default function App() {
                                     }`}
                                   >
                                     {type === "none" && "無"}
-                                    {type === "ocean" && "海浪"}
-                                    {type === "rain" && "森林"}
-                                    {type === "campfire" && "山雨"}
+                                    {type === "ocean" && "海岸"}
+                                    {type === "rain" && "林道"}
+                                    {type === "campfire" && "聽雨"}
                                   </button>
                                 ))}
                               </div>
