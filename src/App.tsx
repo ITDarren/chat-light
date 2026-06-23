@@ -168,7 +168,7 @@ export default function App() {
     if (noiseSourceRef.current) {
       try {
         noiseSourceRef.current.stop();
-      } catch (e) {}
+      } catch (e) { }
       noiseSourceRef.current = null;
     }
     if (audioCtxRef.current) {
@@ -176,7 +176,7 @@ export default function App() {
         if (audioCtxRef.current.state !== "closed") {
           audioCtxRef.current.close();
         }
-      } catch (e) {}
+      } catch (e) { }
       audioCtxRef.current = null;
     }
     noiseGainNodeRef.current = null;
@@ -408,8 +408,8 @@ export default function App() {
             breathingLoopType === "cycles"
               ? breathingLoopValue
               : breathingLoopType === "minutes"
-              ? Math.ceil((breathingLoopValue * 60) / 20)
-              : Infinity;
+                ? Math.ceil((breathingLoopValue * 60) / 20)
+                : Infinity;
 
           if (breathingCycle >= targetCycles) {
             setBreathingPhase("ready");
@@ -424,7 +424,7 @@ export default function App() {
             } catch (e) { }
             // Completion Feedback
             if (breathingGuideType === "vibrate" && navigator.vibrate) {
-              try { navigator.vibrate([100, 80, 100, 80, 300]); } catch (e) {}
+              try { navigator.vibrate([100, 80, 100, 80, 300]); } catch (e) { }
             }
             if (breathingGuideType === "voice" && window.speechSynthesis) {
               try {
@@ -433,7 +433,7 @@ export default function App() {
                 utterance.lang = "zh-TW";
                 utterance.rate = 0.9;
                 window.speechSynthesis.speak(utterance);
-              } catch (e) {}
+              } catch (e) { }
             }
           } else {
             setBreathingCycle((c) => c + 1);
@@ -2366,7 +2366,7 @@ export default function App() {
                 </div>
 
                 {/* Main content center: Breathing Circle & Guidance */}
-                <div className="flex-1 flex flex-col items-center justify-center my-6 max-w-md w-full space-y-12">
+                <div className="flex-1 flex flex-col items-center justify-center my-6 max-w-md w-full">
 
                   {/* Status info */}
                   <div className="space-y-2 select-none h-16 flex flex-col justify-center">
@@ -2438,49 +2438,49 @@ export default function App() {
                               breathingPhase === "hold" ? 7 :
                                 breathingPhase === "exhale" ? 8 :
                                   1,
-                         ease: "easeInOut"
-                       }}
-                       className={`w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-2xl relative transition-colors duration-1000 border border-white/10 ${breathingPhase === "ready" ? "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-350" :
-                         breathingPhase === "inhale" ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-teal-50" :
-                           breathingPhase === "hold" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-amber-50" :
-                             breathingPhase === "exhale" ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-indigo-50" :
-                               "bg-gradient-to-br from-slate-700 to-slate-800 text-slate-105"
-                         }`}
-                     >
-                       {/* Pulsing inner core */}
-                       <div className="absolute inset-2 rounded-full border border-white/20 animate-pulse-soft" />
- 
-                       {/* Timer and instructions in circle */}
-                       <div className="z-10 select-none text-center space-y-1">
-                         {breathingPhase === "ready" ? (
-                           <div className="flex flex-col items-center justify-center">
-                             <Wind className="w-8 h-8 text-teal-400 mb-1 animate-pulse" />
-                             <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-450">
-                               Ready
-                             </span>
-                           </div>
-                         ) : (
-                           <div className="flex flex-col items-center justify-center">
-                             <span className="text-[11px] font-black tracking-wider uppercase opacity-85">
-                               {breathingPhase === "inhale" && "吸氣"}
-                               {breathingPhase === "hold" && "屏氣"}
-                               {breathingPhase === "exhale" && "呼氣"}
-                               {breathingPhase === "rest" && "間歇"}
-                             </span>
-                             <span className="text-4xl font-black font-mono tracking-tight my-0.5">
-                               {breathingTimer} <span className="text-xs font-normal text-white/70">秒</span>
-                             </span>
-                             <span className="text-[10px] font-medium opacity-60">
-                               {breathingPhase === "inhale" && "/ 4 秒"}
-                               {breathingPhase === "hold" && "/ 7 秒"}
-                               {breathingPhase === "exhale" && "/ 8 秒"}
-                               {breathingPhase === "rest" && "/ 1 秒"}
-                             </span>
-                           </div>
-                         )}
-                       </div>
-                     </motion.div>
-                   </div>
+                        ease: "easeInOut"
+                      }}
+                      className={`w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-2xl relative transition-colors duration-1000 border border-white/10 ${breathingPhase === "ready" ? "bg-gradient-to-br from-slate-800 to-slate-900 text-slate-350" :
+                        breathingPhase === "inhale" ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-teal-50" :
+                          breathingPhase === "hold" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-amber-50" :
+                            breathingPhase === "exhale" ? "bg-gradient-to-br from-indigo-500 to-indigo-600 text-indigo-50" :
+                              "bg-gradient-to-br from-slate-700 to-slate-800 text-slate-105"
+                        }`}
+                    >
+                      {/* Pulsing inner core */}
+                      <div className="absolute inset-2 rounded-full border border-white/20 animate-pulse-soft" />
+
+                      {/* Timer and instructions in circle */}
+                      <div className="z-10 select-none text-center space-y-1">
+                        {breathingPhase === "ready" ? (
+                          <div className="flex flex-col items-center justify-center">
+                            <Wind className="w-8 h-8 text-teal-400 mb-1 animate-pulse" />
+                            <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-450">
+                              Ready
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="text-[11px] font-black tracking-wider uppercase opacity-85">
+                              {breathingPhase === "inhale" && "吸氣"}
+                              {breathingPhase === "hold" && "屏氣"}
+                              {breathingPhase === "exhale" && "呼氣"}
+                              {breathingPhase === "rest" && "間歇"}
+                            </span>
+                            <span className="text-4xl font-black font-mono tracking-tight my-0.5">
+                              {breathingTimer} <span className="text-xs font-normal text-white/70">秒</span>
+                            </span>
+                            <span className="text-[10px] font-medium opacity-60">
+                              {breathingPhase === "inhale" && "/ 4 秒"}
+                              {breathingPhase === "hold" && "/ 7 秒"}
+                              {breathingPhase === "exhale" && "/ 8 秒"}
+                              {breathingPhase === "rest" && "/ 1 秒"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </div>
 
                   {/* Progress Indicators & Cycles count */}
                   <div className="w-full px-8 space-y-4 select-none">
@@ -2519,12 +2519,12 @@ export default function App() {
                         ) : (
                           /* Render a smooth progress bar if it's many cycles or based on time */
                           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-teal-500 transition-all duration-500 rounded-full"
-                              style={{ 
-                                width: breathingLoopType === "infinite" 
-                                  ? "100%" 
-                                  : `${Math.min(100, ((breathingCycle - 1) / (breathingLoopType === "minutes" ? Math.ceil((breathingLoopValue * 60) / 20) : breathingLoopValue)) * 100)}%` 
+                              style={{
+                                width: breathingLoopType === "infinite"
+                                  ? "100%"
+                                  : `${Math.min(100, ((breathingCycle - 1) / (breathingLoopType === "minutes" ? Math.ceil((breathingLoopValue * 60) / 20) : breathingLoopValue)) * 100)}%`
                               }}
                             />
                           </div>
@@ -2577,11 +2577,10 @@ export default function App() {
                                       key={item.id}
                                       type="button"
                                       onClick={() => setBreathingGuideType(item.id as any)}
-                                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${
-                                        active
+                                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${active
                                           ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
                                           : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                      }`}
+                                        }`}
                                     >
                                       <div className={`p-1.5 rounded-lg ${active ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
                                         <Icon className="w-3.5 h-3.5" />
@@ -2599,11 +2598,10 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => setBreathingGuideType("none")}
-                                className={`w-full py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                                  breathingGuideType === "none"
+                                className={`w-full py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${breathingGuideType === "none"
                                     ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
                                     : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                }`}
+                                  }`}
                               >
                                 <VolumeX className="w-3.5 h-3.5" />
                                 <span>關閉所有聲音與震動引導</span>
@@ -2647,11 +2645,10 @@ export default function App() {
                                           setBreathingLoopValue(3);
                                         }
                                       }}
-                                      className={`py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
-                                        active
+                                      className={`py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${active
                                           ? "bg-teal-500/15 text-teal-350 border border-teal-500/20"
                                           : "text-slate-400 hover:text-white border border-transparent"
-                                      }`}
+                                        }`}
                                     >
                                       {tab.id === "infinite" && <Repeat className="w-3 h-3" />}
                                       <span>{tab.label}</span>
@@ -2668,11 +2665,10 @@ export default function App() {
                                       key={cycles}
                                       type="button"
                                       onClick={() => setBreathingLoopValue(cycles)}
-                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${
-                                        breathingLoopValue === cycles
+                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === cycles
                                           ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
                                           : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                      }`}
+                                        }`}
                                     >
                                       {cycles}次
                                     </button>
@@ -2687,11 +2683,10 @@ export default function App() {
                                       key={min}
                                       type="button"
                                       onClick={() => setBreathingLoopValue(min)}
-                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${
-                                        breathingLoopValue === min
+                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === min
                                           ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
                                           : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                      }`}
+                                        }`}
                                     >
                                       {min}分鐘
                                     </button>
@@ -2717,7 +2712,7 @@ export default function App() {
                             if (breathingGuideType === "vibrate" && navigator.vibrate) {
                               try {
                                 navigator.vibrate(100);
-                              } catch (e) {}
+                              } catch (e) { }
                             }
                             if (breathingGuideType === "ambient") {
                               startAudioEngine();
