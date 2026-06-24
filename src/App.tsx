@@ -75,7 +75,7 @@ export default function App() {
 
   // Deep breathing 4-7-8 states
   const [showBreathingModal, setShowBreathingModal] = useState<boolean>(false);
-  const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale" | "rest" | "ready">("ready");
+  const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale" | "ready">("ready");
   const [breathingTimer, setBreathingTimer] = useState<number>(0);
   const [breathingCycle, setBreathingCycle] = useState<number>(1);
 
@@ -108,162 +108,34 @@ export default function App() {
     localStorage.setItem("chatlight_breath_loop_value", String(breathingLoopValue));
   }, [breathingLoopValue]);
 
-  // Audio Context and Node refs for sound generation
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const noiseSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const noiseGainNodeRef = useRef<GainNode | null>(null);
-  const audioParamsRef = useRef<any>(null);
-  const crackleIntervalRef = useRef<any>(null);
-  const metronomeIntervalRef = useRef<any>(null);
+  // Audio refs for ambient WAV playback and metronome tones
+  // Place ambient.wav (19 seconds) in the /public/ folder
+  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
   const metronomeCtxRef = useRef<AudioContext | null>(null);
 
-  // Helper to generate pink noise buffer
-  const createPinkNoiseBuffer = (ctx: AudioContext) => {
-    const bufferSize = ctx.sampleRate * 2;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      b3 = 0.86650 * b3 + white * 0.3104856;
-      b4 = 0.55000 * b4 + white * 0.5329522;
-      b5 = -0.7616 * b5 - white * 0.0168980;
-      data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-      data[i] *= 0.11;
-      b6 = white * 0.115926;
-    }
-    return buffer;
-  };
-
-  // Helper to generate brown noise buffer
-  const createBrownNoiseBuffer = (ctx: AudioContext) => {
-    const bufferSize = ctx.sampleRate * 2;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let lastOut = 0.0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      data[i] = (lastOut + (0.02 * white)) / 1.02;
-      lastOut = data[i];
-      data[i] *= 3.5;
-    }
-    return buffer;
-  };
-
   const stopAllAudio = () => {
-    if (crackleIntervalRef.current) {
-      if (Array.isArray(crackleIntervalRef.current)) {
-        crackleIntervalRef.current.forEach((timer) => {
-          clearInterval(timer);
-          clearTimeout(timer);
-        });
-      } else {
-        clearInterval(crackleIntervalRef.current);
-      }
-      crackleIntervalRef.current = null;
-    }
-    if (noiseSourceRef.current) {
+    if (ambientAudioRef.current) {
       try {
-        noiseSourceRef.current.stop();
+        ambientAudioRef.current.pause();
+        ambientAudioRef.current.currentTime = 0;
       } catch (e) { }
-      noiseSourceRef.current = null;
+      ambientAudioRef.current = null;
     }
-    if (audioCtxRef.current) {
-      try {
-        if (audioCtxRef.current.state !== "closed") {
-          audioCtxRef.current.close();
-        }
-      } catch (e) { }
-      audioCtxRef.current = null;
-    }
-    noiseGainNodeRef.current = null;
-    audioParamsRef.current = null;
   };
 
   const startAudioEngine = () => {
     stopAllAudio();
-
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      audioCtxRef.current = ctx;
-
-      // Master gain node
-      const mainGain = ctx.createGain();
-      mainGain.gain.setValueAtTime(0.0, ctx.currentTime);
-      mainGain.connect(ctx.destination);
-      noiseGainNodeRef.current = mainGain;
-
-      // Primary synth voice: Triangle wave for soft, flute-like tone
-      const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(220, ctx.currentTime);
-
-      // Lowpass filter to keep the tone warm and smooth
-      const filter = ctx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(300, ctx.currentTime);
-
-      // Sub-oscillator for warmth (Sine wave, 1 octave lower)
-      const subOsc = ctx.createOscillator();
-      subOsc.type = "sine";
-      subOsc.frequency.setValueAtTime(110, ctx.currentTime);
-
-      // Voice gain node
-      const voiceGain = ctx.createGain();
-      voiceGain.gain.setValueAtTime(0.0, ctx.currentTime);
-
-      // Connect synth
-      osc.connect(filter);
-      subOsc.connect(filter);
-      filter.connect(voiceGain);
-      voiceGain.connect(mainGain);
-
-      // Noise generator for exhale whoosh (pink noise)
-      const pinkBuffer = createPinkNoiseBuffer(ctx);
-      const noiseSource = ctx.createBufferSource();
-      noiseSource.buffer = pinkBuffer;
-      noiseSource.loop = true;
-      noiseSourceRef.current = noiseSource;
-
-      const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = "bandpass";
-      noiseFilter.frequency.setValueAtTime(400, ctx.currentTime);
-      noiseFilter.Q.setValueAtTime(1.0, ctx.currentTime);
-
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.0, ctx.currentTime);
-
-      noiseSource.connect(noiseFilter);
-      noiseFilter.connect(noiseGain);
-      noiseGain.connect(mainGain);
-
-      // Start sources
-      osc.start();
-      subOsc.start();
-      noiseSource.start();
-
-      // Master fade-in
-      mainGain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.5);
-
-      // Save references for dynamic modulation
-      audioParamsRef.current = {
-        ctx,
-        osc,
-        subOsc,
-        filter,
-        voiceGain,
-        noiseGain,
-        noiseFilter,
-        noiseSource
-      };
-
+      const audio = new Audio('/ambient.wav');
+      audio.loop = true;
+      audio.volume = 0.75;
+      ambientAudioRef.current = audio;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => console.warn('Ambient WAV playback failed — ensure /public/ambient.wav exists', e));
+      }
     } catch (e) {
-      console.error("Failed to start audio engine", e);
+      console.error('Failed to start ambient audio', e);
     }
   };
 
@@ -380,7 +252,7 @@ export default function App() {
           setBreathingTimer(1);
         } else {
           // Metronome tick during phase
-          if (isMetronome) playTone(440, 0.08, 0.18);
+          if (isMetronome) playTone(440, 0.12, 0.45);
           setBreathingTimer((t) => t + 1);
         }
       } else if (breathingPhase === "hold") {
@@ -389,26 +261,17 @@ export default function App() {
           setBreathingPhase("exhale");
           setBreathingTimer(1);
         } else {
-          if (isMetronome) playTone(330, 0.08, 0.12);
+          if (isMetronome) playTone(330, 0.12, 0.35);
           setBreathingTimer((t) => t + 1);
         }
       } else if (breathingPhase === "exhale") {
         if (breathingTimer >= 8) {
-          // Completed 8 seconds of exhale — transition to rest (間歇)
-          setBreathingPhase("rest");
-          setBreathingTimer(1);
-        } else {
-          if (isMetronome) playTone(260, 0.08, 0.10);
-          setBreathingTimer((t) => t + 1);
-        }
-      } else if (breathingPhase === "rest") {
-        // Rest is 1 second
-        if (breathingTimer >= 1) {
+          // Completed 8 seconds of exhale — check cycle completion (no rest phase)
           const targetCycles =
             breathingLoopType === "cycles"
               ? breathingLoopValue
               : breathingLoopType === "minutes"
-                ? Math.ceil((breathingLoopValue * 60) / 20)
+                ? Math.ceil((breathingLoopValue * 60) / 19)
                 : Infinity;
 
           if (breathingCycle >= targetCycles) {
@@ -422,7 +285,6 @@ export default function App() {
                 origin: { y: 0.7 }
               });
             } catch (e) { }
-            // Completion Feedback
             if (breathingGuideType === "vibrate" && navigator.vibrate) {
               try { navigator.vibrate([100, 80, 100, 80, 300]); } catch (e) { }
             }
@@ -441,6 +303,7 @@ export default function App() {
             setBreathingTimer(1);
           }
         } else {
+          if (isMetronome) playTone(260, 0.12, 0.30);
           setBreathingTimer((t) => t + 1);
         }
       }
@@ -480,11 +343,11 @@ export default function App() {
     // 2. Phase-change cue tone (played once per phase transition)
     if (breathingGuideType === "metronome") {
       if (breathingPhase === "inhale") {
-        playTone(528, 0.35, 0.25);  // 528 Hz — warm, uplifting (inhale)
+        playTone(528, 0.5, 0.60);  // 528 Hz — warm, uplifting (inhale)
       } else if (breathingPhase === "hold") {
-        playTone(396, 0.35, 0.20);  // 396 Hz — grounded, stable (hold)
+        playTone(396, 0.5, 0.50);  // 396 Hz — grounded, stable (hold)
       } else if (breathingPhase === "exhale") {
-        playTone(285, 0.35, 0.18);  // 285 Hz — gentle release (exhale)
+        playTone(285, 0.5, 0.45);  // 285 Hz — gentle release (exhale)
       }
     }
 
@@ -509,89 +372,6 @@ export default function App() {
       }
     }
 
-    // 4. Dynamic audio parameters modulation based on current breathing phase (Ambient Synthesizer)
-    if (audioParamsRef.current && breathingGuideType === "ambient") {
-      const params = audioParamsRef.current;
-      const ctx = params.ctx;
-      const now = ctx.currentTime;
-
-      try {
-        params.voiceGain.gain.cancelScheduledValues(now);
-        params.noiseGain.gain.cancelScheduledValues(now);
-        params.osc.frequency.cancelScheduledValues(now);
-        params.subOsc.frequency.cancelScheduledValues(now);
-        params.filter.frequency.cancelScheduledValues(now);
-
-        if (breathingPhase === "inhale") {
-          // Inhale (4s): Pitch rises from 220Hz (A3) to 330Hz (E4)
-          params.osc.frequency.setValueAtTime(220, now);
-          params.osc.frequency.linearRampToValueAtTime(330, now + 4.0);
-
-          params.subOsc.frequency.setValueAtTime(110, now);
-          params.subOsc.frequency.linearRampToValueAtTime(165, now + 4.0);
-
-          // Filter opens from 300Hz to 900Hz
-          params.filter.frequency.setValueAtTime(300, now);
-          params.filter.frequency.exponentialRampToValueAtTime(900, now + 4.0);
-
-          // Voice gain swells from 0 to 0.12
-          params.voiceGain.gain.setValueAtTime(0.0, now);
-          params.voiceGain.gain.linearRampToValueAtTime(0.12, now + 4.0);
-
-          // Soft inhale noise whoosh
-          params.noiseGain.gain.setValueAtTime(0.0, now);
-          params.noiseGain.gain.linearRampToValueAtTime(0.015, now + 2.0);
-          params.noiseGain.gain.linearRampToValueAtTime(0.0, now + 4.0);
-
-        } else if (breathingPhase === "hold") {
-          // Hold (7s): Pitch stays flat at 330Hz
-          params.osc.frequency.setValueAtTime(330, now);
-          params.subOsc.frequency.setValueAtTime(165, now);
-
-          // Filter closes down slightly to 450Hz for warmth
-          params.filter.frequency.setValueAtTime(params.filter.frequency.value, now);
-          params.filter.frequency.exponentialRampToValueAtTime(450, now + 1.0);
-
-          // Voice gain remains stable
-          params.voiceGain.gain.setValueAtTime(params.voiceGain.gain.value, now);
-          params.voiceGain.gain.linearRampToValueAtTime(0.08, now + 1.0);
-
-          // Noise stays silent
-          params.noiseGain.gain.setValueAtTime(0.0, now);
-
-        } else if (breathingPhase === "exhale") {
-          // Exhale (8s): Pitch falls from 330Hz to 180Hz (F3)
-          params.osc.frequency.setValueAtTime(330, now);
-          params.osc.frequency.linearRampToValueAtTime(180, now + 8.0);
-
-          params.subOsc.frequency.setValueAtTime(165, now);
-          params.subOsc.frequency.linearRampToValueAtTime(90, now + 8.0);
-
-          // Filter closes down to 150Hz
-          params.filter.frequency.setValueAtTime(params.filter.frequency.value, now);
-          params.filter.frequency.exponentialRampToValueAtTime(150, now + 8.0);
-
-          // Voice gain decays to 0
-          params.voiceGain.gain.setValueAtTime(0.08, now);
-          params.voiceGain.gain.exponentialRampToValueAtTime(0.001, now + 8.0);
-
-          // Exhale WHOOSH noise: swells up to 0.08 in 2 seconds, then decays slowly to 0
-          params.noiseGain.gain.setValueAtTime(0.0, now);
-          params.noiseGain.gain.linearRampToValueAtTime(0.08, now + 2.0);
-          params.noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 8.0);
-
-        } else if (breathingPhase === "rest") {
-          // Rest (1s): Silence
-          params.voiceGain.gain.setValueAtTime(params.voiceGain.gain.value, now);
-          params.voiceGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
-
-          params.noiseGain.gain.setValueAtTime(params.noiseGain.gain.value, now);
-          params.noiseGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
-        }
-      } catch (e) {
-        console.warn("Audio param modulation failed", e);
-      }
-    }
   }, [breathingPhase, showBreathingModal, breathingCycle, breathingGuideType]);
 
   // Save journal entries helper mapping specific cards
@@ -2366,7 +2146,7 @@ export default function App() {
                 </div>
 
                 {/* Main content center: Breathing Circle & Guidance */}
-                <div className="flex-1 flex flex-col items-center justify-center my-6 max-w-md w-full">
+                <div className="flex-1 overflow-y-auto flex flex-col items-center justify-start max-w-md w-full py-4 gap-3">
 
                   {/* Status info */}
                   <div className="space-y-2 select-none h-16 flex flex-col justify-center">
@@ -2383,14 +2163,12 @@ export default function App() {
                           {breathingPhase === "inhale" && "🌱 第一步：鼻子吸氣"}
                           {breathingPhase === "hold" && "🪵 第二步：屏住呼吸"}
                           {breathingPhase === "exhale" && "🌊 第三步：嘴巴吐氣"}
-                          {breathingPhase === "rest" && "✨ 第四步：靜心間歇"}
                         </h3>
                         <p className="text-[11px] text-slate-400 leading-relaxed font-semibold px-4">
                           {breathingPhase === "ready" && "找到舒服姿勢，放鬆肩膀，即可啟動引導調頻儀式。"}
                           {breathingPhase === "inhale" && "緩緩地，用 4 秒鐘將清新的氧氣吸入腹部，感受新鮮溫暖的能量。"}
                           {breathingPhase === "hold" && "溫和閉氣 7 秒鐘。讓吸入的能量與大腦思維交融，淨化急躁的心情。"}
                           {breathingPhase === "exhale" && "微張嘴巴，花 8 秒鐘緩慢哈氣，將所有焦慮與生活卡點通通呼出。"}
-                          {breathingPhase === "rest" && "保持靜止 1 秒鐘。放鬆全身肌肉，靜靜期待下一次新生。"}
                         </p>
                       </motion.div>
                     </AnimatePresence>
@@ -2465,7 +2243,6 @@ export default function App() {
                               {breathingPhase === "inhale" && "吸氣"}
                               {breathingPhase === "hold" && "屏氣"}
                               {breathingPhase === "exhale" && "呼氣"}
-                              {breathingPhase === "rest" && "間歇"}
                             </span>
                             <span className="text-4xl font-black font-mono tracking-tight my-0.5">
                               {breathingTimer} <span className="text-xs font-normal text-white/70">秒</span>
@@ -2474,7 +2251,6 @@ export default function App() {
                               {breathingPhase === "inhale" && "/ 4 秒"}
                               {breathingPhase === "hold" && "/ 7 秒"}
                               {breathingPhase === "exhale" && "/ 8 秒"}
-                              {breathingPhase === "rest" && "/ 1 秒"}
                             </span>
                           </div>
                         )}
@@ -2565,7 +2341,7 @@ export default function App() {
 
                               <div className="grid grid-cols-2 gap-2">
                                 {[
-                                  { id: "ambient", label: "自然環境音", sub: "模擬 YouTube 靜心", icon: Music },
+                                  { id: "ambient", label: "自然環境音", sub: "播放 WAV 環境音檔", icon: Music },
                                   { id: "voice", label: "人聲語音", sub: "吸氣/閉氣/吐氣", icon: Mic },
                                   { id: "metronome", label: "節拍提示音", sub: "柔和換段音效", icon: Volume2 },
                                   { id: "vibrate", label: "手機震動", sub: "觸覺回饋提醒", icon: Smartphone },
@@ -2659,38 +2435,70 @@ export default function App() {
 
                               {/* 數值選擇按鈕組 */}
                               {breathingLoopType === "cycles" && (
-                                <div className="grid grid-cols-4 gap-1.5">
-                                  {[4, 8, 16, 32].map((cycles) => (
-                                    <button
-                                      key={cycles}
-                                      type="button"
-                                      onClick={() => setBreathingLoopValue(cycles)}
-                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === cycles
-                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                        }`}
-                                    >
-                                      {cycles}次
-                                    </button>
-                                  ))}
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-4 gap-1.5">
+                                    {[4, 8, 16, 32].map((cycles) => (
+                                      <button
+                                        key={cycles}
+                                        type="button"
+                                        onClick={() => setBreathingLoopValue(cycles)}
+                                        className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === cycles
+                                            ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
+                                            : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                          }`}
+                                      >
+                                        {cycles}次
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center justify-between bg-black/20 rounded-xl border border-white/5 px-3 py-2">
+                                    <span className="text-[10px] text-slate-400 font-bold">自訂次數</span>
+                                    <div className="flex items-center gap-2">
+                                      <button type="button" onClick={() => setBreathingLoopValue(Math.max(1, breathingLoopValue - 1))}
+                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
+                                        −
+                                      </button>
+                                      <span className="text-teal-350 font-black text-xs w-10 text-center tabular-nums">{breathingLoopValue}次</span>
+                                      <button type="button" onClick={() => setBreathingLoopValue(breathingLoopValue + 1)}
+                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
 
                               {breathingLoopType === "minutes" && (
-                                <div className="grid grid-cols-4 gap-1.5">
-                                  {[1, 3, 5, 10].map((min) => (
-                                    <button
-                                      key={min}
-                                      type="button"
-                                      onClick={() => setBreathingLoopValue(min)}
-                                      className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === min
-                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                        }`}
-                                    >
-                                      {min}分鐘
-                                    </button>
-                                  ))}
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-4 gap-1.5">
+                                    {[1, 3, 5, 10].map((min) => (
+                                      <button
+                                        key={min}
+                                        type="button"
+                                        onClick={() => setBreathingLoopValue(min)}
+                                        className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === min
+                                            ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
+                                            : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                          }`}
+                                      >
+                                        {min}分鐘
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center justify-between bg-black/20 rounded-xl border border-white/5 px-3 py-2">
+                                    <span className="text-[10px] text-slate-400 font-bold">自訂分鐘數</span>
+                                    <div className="flex items-center gap-2">
+                                      <button type="button" onClick={() => setBreathingLoopValue(Math.max(1, breathingLoopValue - 1))}
+                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
+                                        −
+                                      </button>
+                                      <span className="text-teal-350 font-black text-xs w-12 text-center tabular-nums">{breathingLoopValue}分鐘</span>
+                                      <button type="button" onClick={() => setBreathingLoopValue(breathingLoopValue + 1)}
+                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
 
@@ -2721,7 +2529,7 @@ export default function App() {
                             setBreathingCycle(1);
                             setBreathingTimer(1);
                           }}
-                          className="w-full py-4.5 rounded-2xl bg-gradient-to-r from-teal-500 via-indigo-650 to-indigo-700 hover:from-teal-400 hover:to-indigo-600 text-white font-extrabold text-sm transition-all shadow-xl shadow-indigo-950/40 border border-white/5 select-none hover:scale-101 active:scale-99 cursor-pointer"
+                          className="w-full py-4 rounded-2xl bg-gradient-to-r from-teal-500 via-indigo-650 to-indigo-700 hover:from-teal-400 hover:to-indigo-600 text-white font-extrabold text-sm transition-all shadow-xl shadow-indigo-950/40 border border-white/5 select-none hover:scale-101 active:scale-99 cursor-pointer"
                         >
                           🧘 啟動 4-7-8 呼吸排除儀式
                         </button>
