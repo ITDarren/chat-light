@@ -149,32 +149,66 @@ export default function App() {
   };
 
   // Preload ambient WAV without playing (eliminates first-play latency)
-  const preloadAmbientAudio = () => {
+  const preloadAmbientAudio = async () => {
     if (ambientAudioRef.current) return; // already preloaded
+    const tried: string[] = [];
     try {
-      const audio = new Audio(import.meta.env.BASE_URL + 'ambient.wav');
-      audio.loop = true;
-      audio.volume = 0.75;
-      audio.preload = 'auto';
-      audio.load();
-      ambientAudioRef.current = audio;
+      // Build candidate URLs to try (respecting Vite base when present)
+      try {
+        tried.push(new URL('ambient.wav', import.meta.env.BASE_URL || window.location.origin).href);
+      } catch {}
+      const base = import.meta.env.BASE_URL || '/';
+      try {
+        const normalizedBase = base.startsWith('/') ? base : `/${base}`;
+        tried.push(`${window.location.origin}${normalizedBase.replace(/\/+$/, '')}/ambient.wav`);
+      } catch {}
+      tried.push(`${window.location.origin}/ambient.wav`);
+      tried.push('/ambient.wav');
+      tried.push('ambient.wav');
+
+      // De-dupe while preserving order
+      const candidates = Array.from(new Set(tried.filter(Boolean)));
+
+      for (const candidate of candidates) {
+        try {
+          const resp = await fetch(candidate, { method: 'HEAD' });
+          if (resp && resp.ok) {
+            const audio = new Audio(candidate);
+            audio.loop = true;
+            audio.volume = 0.75;
+            audio.preload = 'auto';
+            try { audio.crossOrigin = 'anonymous'; } catch (e) { }
+            audio.addEventListener('error', (ev) => {
+              console.warn('Ambient WAV failed to load', { src: candidate, ev });
+            });
+            audio.load();
+            ambientAudioRef.current = audio;
+            console.debug('Ambient WAV preloaded from', candidate);
+            return;
+          }
+        } catch (e) {
+          // continue to next candidate
+        }
+      }
+
+      console.warn('Ambient WAV not found at any candidate URL', candidates);
     } catch (e) {
       console.warn('Ambient WAV preload failed', e);
     }
   };
 
   // Start ambient audio — reuses preloaded element if available
-  const startAudioEngine = () => {
+  const startAudioEngine = async () => {
     try {
       if (!ambientAudioRef.current) {
-        preloadAmbientAudio();
+        await preloadAmbientAudio();
       }
       const audio = ambientAudioRef.current;
       if (!audio) return;
       audio.currentTime = 0;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(e => console.warn('Ambient WAV playback failed — ensure /public/ambient.wav exists', e));
+        playPromise.catch(e => console.warn('Ambient WAV playback failed — user gesture or autoplay policy may block playback', { src: audio.src, e }));
       }
     } catch (e) {
       console.error('Failed to start ambient audio', e);
@@ -184,7 +218,7 @@ export default function App() {
   // Preload ambient audio and warm up TTS whenever guide type changes
   useEffect(() => {
     if (breathingGuideType === 'ambient') {
-      preloadAmbientAudio();
+      void preloadAmbientAudio();
     }
     if (breathingGuideType === 'voice' && 'speechSynthesis' in window) {
       // Preload voice list (async in some browsers)
@@ -1030,7 +1064,7 @@ export default function App() {
                         src={counselorAvatar}
                         alt="Counselor"
                         className="w-full h-full object-cover select-none pointer-events-none"
-                        fetchpriority="high"
+                        fetchPriority="high"
                         draggable={false}
                       />
                     </motion.div>
@@ -1188,7 +1222,7 @@ export default function App() {
                           src={counselorAvatar}
                           alt="聊亮神隊友"
                           className="w-full h-full object-cover select-none pointer-events-none"
-                          fetchpriority="high"
+                          fetchPriority="high"
                           draggable={false}
                         />
                       </div>
