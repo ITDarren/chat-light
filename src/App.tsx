@@ -126,7 +126,7 @@ export default function App() {
   const startAudioEngine = () => {
     stopAllAudio();
     try {
-      const audio = new Audio('/ambient.wav');
+      const audio = new Audio(import.meta.env.BASE_URL + 'ambient.wav');
       audio.loop = true;
       audio.volume = 0.75;
       ambientAudioRef.current = audio;
