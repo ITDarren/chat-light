@@ -116,23 +116,51 @@ export default function App() {
   const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
   const metronomeCtxRef = useRef<AudioContext | null>(null);
 
+  // Pause & reset ambient audio (keep element preloaded for reuse)
   const stopAllAudio = () => {
     if (ambientAudioRef.current) {
       try {
         ambientAudioRef.current.pause();
         ambientAudioRef.current.currentTime = 0;
       } catch (e) { }
+    }
+  };
+
+  // Full teardown — only used on unmount
+  const unloadAudio = () => {
+    if (ambientAudioRef.current) {
+      try {
+        ambientAudioRef.current.pause();
+        ambientAudioRef.current.src = '';
+      } catch (e) { }
       ambientAudioRef.current = null;
     }
   };
 
-  const startAudioEngine = () => {
-    stopAllAudio();
+  // Preload ambient WAV without playing (eliminates first-play latency)
+  const preloadAmbientAudio = () => {
+    if (ambientAudioRef.current) return; // already preloaded
     try {
       const audio = new Audio(import.meta.env.BASE_URL + 'ambient.wav');
       audio.loop = true;
       audio.volume = 0.75;
+      audio.preload = 'auto';
+      audio.load();
       ambientAudioRef.current = audio;
+    } catch (e) {
+      console.warn('Ambient WAV preload failed', e);
+    }
+  };
+
+  // Start ambient audio — reuses preloaded element if available
+  const startAudioEngine = () => {
+    try {
+      if (!ambientAudioRef.current) {
+        preloadAmbientAudio();
+      }
+      const audio = ambientAudioRef.current;
+      if (!audio) return;
+      audio.currentTime = 0;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(e => console.warn('Ambient WAV playback failed — ensure /public/ambient.wav exists', e));
@@ -142,10 +170,36 @@ export default function App() {
     }
   };
 
+  // Preload ambient audio and warm up TTS whenever guide type changes
+  useEffect(() => {
+    if (breathingGuideType === 'ambient') {
+      preloadAmbientAudio();
+    }
+    if (breathingGuideType === 'voice' && 'speechSynthesis' in window) {
+      // Preload voice list (async in some browsers)
+      window.speechSynthesis.getVoices();
+      // Warmup: speak a zero-volume utterance to initialise TTS engine
+      try {
+        window.speechSynthesis.cancel();
+        const warmup = new SpeechSynthesisUtterance('\u200B');
+        warmup.volume = 0;
+        warmup.lang = 'zh-TW';
+        warmup.rate = 1;
+        window.speechSynthesis.speak(warmup);
+      } catch (e) { }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breathingGuideType]);
+
   // Cleanup audio & speech on unmount
   useEffect(() => {
+    // Preload voice list immediately so it is ready before first use
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
     return () => {
-      stopAllAudio();
+      unloadAudio();
       window.speechSynthesis?.cancel();
     };
   }, []);
