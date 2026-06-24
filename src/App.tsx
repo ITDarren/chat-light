@@ -79,9 +79,16 @@ export default function App() {
   const [breathingTimer, setBreathingTimer] = useState<number>(0);
   const [breathingCycle, setBreathingCycle] = useState<number>(1);
 
-  // 呼吸輔助引導單選模式 state (ambient=自然環境音, voice=人聲語音, metronome=節拍提示音, vibrate=手機震動, none=關閉)
-  const [breathingGuideType, setBreathingGuideType] = useState<"ambient" | "voice" | "metronome" | "vibrate" | "none">(() => {
-    return (localStorage.getItem("chatlight_breath_guide_type") as any) || "ambient";
+  // 呼吸輔助引導聲音單選模式 state (ambient=自然環境音, voice=人聲語音, metronome=節拍提示音, none=關閉)
+  const [breathingGuideType, setBreathingGuideType] = useState<"ambient" | "voice" | "metronome" | "none">(() => {
+    const saved = localStorage.getItem("chatlight_breath_guide_type") as any;
+    // 舊版 "vibrate" 值升級為 "none"
+    return (saved === "vibrate" ? "none" : saved) || "ambient";
+  });
+
+  // 震動回饋開關 state (可與聲音引導同時使用)
+  const [breathingVibrateEnabled, setBreathingVibrateEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("chatlight_breath_vibrate") === "true";
   });
 
   // 循環設定 state (minutes=n分鐘, cycles=n次, infinite=無限循環)
@@ -110,6 +117,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("chatlight_breath_loop_value", String(breathingLoopValue));
   }, [breathingLoopValue]);
+
+  useEffect(() => {
+    localStorage.setItem("chatlight_breath_vibrate", String(breathingVibrateEnabled));
+  }, [breathingVibrateEnabled]);
 
   // Audio refs for ambient WAV playback and metronome tones
   // Place ambient.wav (19 seconds) in the /public/ folder
@@ -342,7 +353,7 @@ export default function App() {
                 origin: { y: 0.7 }
               });
             } catch (e) { }
-            if (breathingGuideType === "vibrate" && navigator.vibrate) {
+            if (breathingVibrateEnabled && navigator.vibrate) {
               try { navigator.vibrate([100, 80, 100, 80, 300]); } catch (e) { }
             }
             if (breathingGuideType === "voice" && window.speechSynthesis) {
@@ -383,7 +394,7 @@ export default function App() {
     }
 
     // 1. Vibration Feedback on phase change
-    if (breathingGuideType === "vibrate" && navigator.vibrate) {
+    if (breathingVibrateEnabled && navigator.vibrate) {
       try {
         if (breathingPhase === "inhale") {
           navigator.vibrate(120);
@@ -429,7 +440,7 @@ export default function App() {
       }
     }
 
-  }, [breathingPhase, showBreathingModal, breathingCycle, breathingGuideType]);
+  }, [breathingPhase, showBreathingModal, breathingCycle, breathingGuideType, breathingVibrateEnabled]);
 
   // Save journal entries helper mapping specific cards
   const saveJournal = (personalVow: string, confidenceVal: number, customVow?: string) => {
@@ -2311,8 +2322,8 @@ export default function App() {
                           <div className="flex flex-col items-center justify-center">
                             <span className="text-[11px] font-black tracking-wider uppercase opacity-85">
                               {breathingPhase === "inhale" && "吸氣"}
-                              {breathingPhase === "hold" && "屏氣"}
-                              {breathingPhase === "exhale" && "呼氣"}
+                              {breathingPhase === "hold" && "閉氣"}
+                              {breathingPhase === "exhale" && "吐氣"}
                             </span>
                             <span className="text-4xl font-black font-mono tracking-tight my-0.5">
                               {breathingTimer} <span className="text-xs font-normal text-white/70">秒</span>
@@ -2388,9 +2399,13 @@ export default function App() {
                           <span className="bg-white/5 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-400">
                             {breathingGuideType === "ambient" ? "🎵 環境音" :
                               breathingGuideType === "voice" ? "🗣️ 人聲" :
-                              breathingGuideType === "metronome" ? "⏱️ 節拍音" :
-                              breathingGuideType === "vibrate" ? "📳 震動" : "🔇 靜音"}
+                              breathingGuideType === "metronome" ? "⏱️ 節拍音" : "🔇 靜音"}
                           </span>
+                          {breathingVibrateEnabled && (
+                            <span className="bg-white/5 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-400">
+                              📳 震動
+                            </span>
+                          )}
                           <span className="text-slate-700 text-xs">·</span>
                           <span className="bg-white/5 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-400">
                             {breathingLoopType === "infinite" ? "🔂 無限" :
@@ -2411,7 +2426,7 @@ export default function App() {
                         <button
                           onClick={() => {
                             setShowSettingsPanel(false);
-                            if (breathingGuideType === "vibrate" && navigator.vibrate) {
+                            if (breathingVibrateEnabled && navigator.vibrate) {
                               try { navigator.vibrate(100); } catch (e) { }
                             }
                             if (breathingGuideType === "ambient") {
@@ -2477,17 +2492,15 @@ export default function App() {
                               {breathingGuideType === "ambient" && "🎵 環境音"}
                               {breathingGuideType === "voice" && "🗣️ 人聲語音"}
                               {breathingGuideType === "metronome" && "⏱️ 節拍音"}
-                              {breathingGuideType === "vibrate" && "📳 震動"}
                               {breathingGuideType === "none" && "🔇 已關閉"}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-3 gap-2">
                             {[
-                              { id: "ambient", label: "自然環境音", sub: "WAV 環境音檔", icon: Music },
+                              { id: "ambient", label: "自然環境音", sub: "頌缽和海浪聲", icon: Music },
                               { id: "voice", label: "人聲語音", sub: "吸氣/閉氣/吐氣", icon: Mic },
                               { id: "metronome", label: "節拍提示音", sub: "柔和換段音效", icon: Volume2 },
-                              { id: "vibrate", label: "手機震動", sub: "觸覺回饋提醒", icon: Smartphone },
                             ].map((item) => {
                               const Icon = item.icon;
                               const active = breathingGuideType === item.id;
@@ -2496,7 +2509,7 @@ export default function App() {
                                   key={item.id}
                                   type="button"
                                   onClick={() => setBreathingGuideType(item.id as any)}
-                                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${active
+                                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all cursor-pointer select-none ${active
                                     ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
                                     : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/8 hover:text-white"
                                     }`}
@@ -2504,8 +2517,8 @@ export default function App() {
                                   <div className={`p-1.5 rounded-lg shrink-0 ${active ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
                                     <Icon className="w-3.5 h-3.5" />
                                   </div>
-                                  <div className="leading-tight min-w-0">
-                                    <p className="text-[10px] font-black">{item.label}</p>
+                                  <div className="leading-tight">
+                                    <p className="text-[9px] font-black">{item.label}</p>
                                     <p className="text-[8px] opacity-60 font-bold">{item.sub}</p>
                                   </div>
                                 </button>
@@ -2522,8 +2535,28 @@ export default function App() {
                               }`}
                           >
                             <VolumeX className="w-3.5 h-3.5" />
-                            <span>關閉所有聲音與震動</span>
+                            <span>關閉聲音</span>
                           </button>
+
+                          {/* 震動開關 */}
+                          <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${breathingVibrateEnabled ? "bg-teal-500/10 border-teal-500/30" : "bg-white/3 border-white/5"}`}>
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${breathingVibrateEnabled ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
+                                <Smartphone className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="leading-tight">
+                                <p className="text-[10px] font-black text-slate-300">手機震動</p>
+                                <p className="text-[8px] opacity-60 font-bold text-slate-400">觸覺回饋</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setBreathingVibrateEnabled(!breathingVibrateEnabled)}
+                              className={`relative w-10 h-5 rounded-full transition-all cursor-pointer flex items-center px-0.5 shrink-0 border ${breathingVibrateEnabled ? "bg-teal-500 border-teal-400" : "bg-white/10 border-white/10"}`}
+                            >
+                              <span className={`w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-200 ${breathingVibrateEnabled ? "translate-x-5" : "translate-x-0"}`} />
+                            </button>
+                          </div>
                         </div>
 
                         {/* 分割線 */}
