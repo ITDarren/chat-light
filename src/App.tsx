@@ -95,6 +95,9 @@ export default function App() {
     return val ? parseInt(val, 10) : 4;
   });
 
+  // 側邊設定面板顯示狀態
+  const [showSettingsPanel, setShowSettingsPanel] = useState<boolean>(false);
+
   // Sync settings to localStorage
   useEffect(() => {
     localStorage.setItem("chatlight_breath_guide_type", breathingGuideType);
@@ -1889,6 +1892,7 @@ export default function App() {
                                   setBreathingPhase("ready");
                                   setBreathingCycle(1);
                                   setBreathingTimer(0);
+                                  setShowSettingsPanel(false);
                                 }}
                                 className="w-10 h-10 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-650 flex items-center justify-center transition-all border border-teal-100/50 shadow-xs shrink-0 cursor-pointer"
                                 title="啟動 4-7-8 減壓深呼吸放鬆動畫"
@@ -2126,27 +2130,39 @@ export default function App() {
                 className="fixed inset-0 z-50 bg-slate-950/98 backdrop-blur-lg flex flex-col items-center justify-between p-6 text-white text-center"
               >
                 {/* Top status bar & close button */}
-                <div className="w-full max-w-md flex items-center justify-between pt-4 select-none">
+                <div className="w-full max-w-md flex items-center justify-between pt-4 select-none shrink-0">
                   <div className="flex items-center gap-2">
                     <Wind className="w-5 h-5 text-teal-400 animate-pulse-soft" />
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono">
                       4-7-8 Mind Breather
                     </span>
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowBreathingModal(false);
-                      setBreathingPhase("ready");
-                    }}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer text-xs font-bold flex items-center gap-1 border border-white/5"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>結束返回</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {breathingPhase === "ready" && (
+                      <button
+                        onClick={() => setShowSettingsPanel((v) => !v)}
+                        className={`p-2 rounded-xl transition cursor-pointer text-xs font-bold flex items-center gap-1 border ${showSettingsPanel ? "bg-teal-500/15 border-teal-500/25 text-teal-350" : "bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border-white/5"}`}
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>設定</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowBreathingModal(false);
+                        setBreathingPhase("ready");
+                        setShowSettingsPanel(false);
+                      }}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer text-xs font-bold flex items-center gap-1 border border-white/5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>結束返回</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Main content center: Breathing Circle & Guidance */}
-                <div className="flex-1 overflow-y-auto flex flex-col items-center justify-start max-w-md w-full py-4 gap-3">
+                <div className="flex-1 flex flex-col items-center justify-center my-6 max-w-md w-full">
 
                   {/* Status info */}
                   <div className="space-y-2 select-none h-16 flex flex-col justify-center">
@@ -2312,215 +2328,37 @@ export default function App() {
                         </p>
                       </div>
                     ) : (
-                      <div className="w-full space-y-5">
-                        {/* 輔助引導設定面板 */}
-                        <div className="space-y-3">
-                          <div className="text-left px-1">
-                            <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-1.5 flex items-center gap-1.5 font-mono">
-                              <Sliders className="w-3 h-3 text-teal-450" />
-                              輔助引導功能設定
-                            </h4>
-                          </div>
-
-                          <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-4 backdrop-blur-md shadow-inner text-left">
-                            {/* 1. 輔助引導模式 (單選) */}
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-xs font-bold text-slate-350">
-                                <span className="flex items-center gap-1.5 select-none">
-                                  <Sliders className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
-                                  引導模式 (單選)
-                                </span>
-                                <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
-                                  {breathingGuideType === "ambient" && "模擬環境音 🎵"}
-                                  {breathingGuideType === "voice" && "人聲語音 🗣️"}
-                                  {breathingGuideType === "metronome" && "節拍提示音 ⏱️"}
-                                  {breathingGuideType === "vibrate" && "手機震動 📳"}
-                                  {breathingGuideType === "none" && "已關閉 🔇"}
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                {[
-                                  { id: "ambient", label: "自然環境音", sub: "播放 WAV 環境音檔", icon: Music },
-                                  { id: "voice", label: "人聲語音", sub: "吸氣/閉氣/吐氣", icon: Mic },
-                                  { id: "metronome", label: "節拍提示音", sub: "柔和換段音效", icon: Volume2 },
-                                  { id: "vibrate", label: "手機震動", sub: "觸覺回饋提醒", icon: Smartphone },
-                                ].map((item) => {
-                                  const Icon = item.icon;
-                                  const active = breathingGuideType === item.id;
-                                  return (
-                                    <button
-                                      key={item.id}
-                                      type="button"
-                                      onClick={() => setBreathingGuideType(item.id as any)}
-                                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${active
-                                        ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
-                                        : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                        }`}
-                                    >
-                                      <div className={`p-1.5 rounded-lg ${active ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
-                                        <Icon className="w-3.5 h-3.5" />
-                                      </div>
-                                      <div className="leading-tight">
-                                        <p className="text-[10px] font-black">{item.label}</p>
-                                        <p className="text-[8px] opacity-60 font-bold">{item.sub}</p>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              {/* 關閉引導獨立按鈕 */}
-                              <button
-                                type="button"
-                                onClick={() => setBreathingGuideType("none")}
-                                className={`w-full py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${breathingGuideType === "none"
-                                  ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
-                                  : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                  }`}
-                              >
-                                <VolumeX className="w-3.5 h-3.5" />
-                                <span>關閉所有聲音與震動引導</span>
-                              </button>
-                            </div>
-
-                            {/* 分割線 */}
-                            <div className="h-[1px] bg-white/5" />
-
-                            {/* 2. 循環設定 */}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between text-xs font-bold text-slate-350">
-                                <span className="flex items-center gap-1.5 select-none">
-                                  <RefreshCw className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
-                                  循環次數 / 時間設定
-                                </span>
-                                <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-wide">
-                                  {breathingLoopType === "minutes" && `${breathingLoopValue} 分鐘 ⏳`}
-                                  {breathingLoopType === "cycles" && `${breathingLoopValue} 次循環 🌀`}
-                                  {breathingLoopType === "infinite" && "無限循環 🔂"}
-                                </span>
-                              </div>
-
-                              {/* 循環類型選擇 Tab */}
-                              <div className="grid grid-cols-3 gap-1.5 bg-black/20 p-1 rounded-xl border border-white/5">
-                                {[
-                                  { id: "cycles", label: "按次數" },
-                                  { id: "minutes", label: "按時間" },
-                                  { id: "infinite", label: "無限", icon: Repeat }
-                                ].map((tab) => {
-                                  const active = breathingLoopType === tab.id;
-                                  return (
-                                    <button
-                                      key={tab.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setBreathingLoopType(tab.id as any);
-                                        if (tab.id === "cycles") {
-                                          setBreathingLoopValue(4);
-                                        } else if (tab.id === "minutes") {
-                                          setBreathingLoopValue(3);
-                                        }
-                                      }}
-                                      className={`py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${active
-                                        ? "bg-teal-500/15 text-teal-350 border border-teal-500/20"
-                                        : "text-slate-400 hover:text-white border border-transparent"
-                                        }`}
-                                    >
-                                      {tab.id === "infinite" && <Repeat className="w-3 h-3" />}
-                                      <span>{tab.label}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              {/* 數值選擇按鈕組 */}
-                              {breathingLoopType === "cycles" && (
-                                <div className="space-y-2">
-                                  <div className="grid grid-cols-4 gap-1.5">
-                                    {[4, 8, 16, 32].map((cycles) => (
-                                      <button
-                                        key={cycles}
-                                        type="button"
-                                        onClick={() => setBreathingLoopValue(cycles)}
-                                        className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === cycles
-                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          }`}
-                                      >
-                                        {cycles}次
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center justify-between bg-black/20 rounded-xl border border-white/5 px-3 py-2">
-                                    <span className="text-[10px] text-slate-400 font-bold">自訂次數</span>
-                                    <div className="flex items-center gap-2">
-                                      <button type="button" onClick={() => setBreathingLoopValue(Math.max(1, breathingLoopValue - 1))}
-                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
-                                        −
-                                      </button>
-                                      <span className="text-teal-350 font-black text-xs w-10 text-center tabular-nums">{breathingLoopValue}次</span>
-                                      <button type="button" onClick={() => setBreathingLoopValue(breathingLoopValue + 1)}
-                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
-                                        +
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {breathingLoopType === "minutes" && (
-                                <div className="space-y-2">
-                                  <div className="grid grid-cols-4 gap-1.5">
-                                    {[1, 3, 5, 10].map((min) => (
-                                      <button
-                                        key={min}
-                                        type="button"
-                                        onClick={() => setBreathingLoopValue(min)}
-                                        className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === min
-                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          }`}
-                                      >
-                                        {min}分鐘
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center justify-between bg-black/20 rounded-xl border border-white/5 px-3 py-2">
-                                    <span className="text-[10px] text-slate-400 font-bold">自訂分鐘數</span>
-                                    <div className="flex items-center gap-2">
-                                      <button type="button" onClick={() => setBreathingLoopValue(Math.max(1, breathingLoopValue - 1))}
-                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
-                                        −
-                                      </button>
-                                      <span className="text-teal-350 font-black text-xs w-12 text-center tabular-nums">{breathingLoopValue}分鐘</span>
-                                      <button type="button" onClick={() => setBreathingLoopValue(breathingLoopValue + 1)}
-                                        className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold cursor-pointer border border-white/10 leading-none">
-                                        +
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {breathingLoopType === "infinite" && (
-                                <div className="p-2 rounded-xl bg-white/2 border border-white/5 text-center">
-                                  <p className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1.5 leading-relaxed">
-                                    <Repeat className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
-                                    無限循環模式：將持續引導直到點擊「結束返回」。
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                      <div className="w-full px-8 space-y-4 select-none">
+                        {/* Compact current settings summary */}
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                          <span className="bg-white/5 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-400">
+                            {breathingGuideType === "ambient" ? "🎵 環境音" :
+                              breathingGuideType === "voice" ? "🗣️ 人聲" :
+                              breathingGuideType === "metronome" ? "⏱️ 節拍音" :
+                              breathingGuideType === "vibrate" ? "📳 震動" : "🔇 靜音"}
+                          </span>
+                          <span className="text-slate-700 text-xs">·</span>
+                          <span className="bg-white/5 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-400">
+                            {breathingLoopType === "infinite" ? "🔂 無限" :
+                              breathingLoopType === "minutes" ? `⏳ ${breathingLoopValue} 分鐘` :
+                              `🌀 ${breathingLoopValue} 次`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowSettingsPanel(true)}
+                            className="bg-teal-500/8 hover:bg-teal-500/15 px-2.5 py-1 rounded-full text-[10px] font-black text-teal-400 hover:text-teal-300 flex items-center gap-1 cursor-pointer transition-all border border-teal-500/15"
+                          >
+                            <Sliders className="w-2.5 h-2.5" />
+                            調整設定
+                          </button>
                         </div>
 
                         {/* 啟動按鈕 */}
                         <button
                           onClick={() => {
+                            setShowSettingsPanel(false);
                             if (breathingGuideType === "vibrate" && navigator.vibrate) {
-                              try {
-                                navigator.vibrate(100);
-                              } catch (e) { }
+                              try { navigator.vibrate(100); } catch (e) { }
                             }
                             if (breathingGuideType === "ambient") {
                               startAudioEngine();
@@ -2540,11 +2378,222 @@ export default function App() {
                 </div>
 
                 {/* Bottom footer quote */}
-                <div className="pb-6 pt-2 select-none">
+                <div className="pb-6 pt-2 select-none shrink-0">
                   <p className="text-[10px] font-bold text-slate-500 tracking-wide uppercase">
                     「呼氣時 呼出重擔；吸氣時 注入新生」 🌬️
                   </p>
                 </div>
+
+                {/* ===== 側邊設定面板 (slide-in from right) ===== */}
+                <AnimatePresence>
+                  {showSettingsPanel && (
+                    <motion.div
+                      key="settings-panel"
+                      initial={{ x: "100%" }}
+                      animate={{ x: "0%" }}
+                      exit={{ x: "100%" }}
+                      transition={{ type: "spring", stiffness: 320, damping: 32 }}
+                      className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[88vw] bg-slate-950/98 border-l border-white/8 flex flex-col overflow-hidden z-20 shadow-2xl shadow-black/50"
+                    >
+                      {/* 側邊欄 Header */}
+                      <div className="flex items-center justify-between px-4 py-4 border-b border-white/8 shrink-0">
+                        <span className="flex items-center gap-2 text-xs font-extrabold text-slate-200">
+                          <Sliders className="w-4 h-4 text-teal-400" />
+                          輔助引導設定
+                        </span>
+                        <button
+                          onClick={() => setShowSettingsPanel(false)}
+                          className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* 側邊欄 Content (scrollable) */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+                        {/* 1. 引導模式 */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-300">
+                            <span className="flex items-center gap-1.5">
+                              <Sliders className="w-3.5 h-3.5 text-teal-400" />
+                              引導模式
+                            </span>
+                            <span className="text-teal-400 text-[10px]">
+                              {breathingGuideType === "ambient" && "🎵 環境音"}
+                              {breathingGuideType === "voice" && "🗣️ 人聲語音"}
+                              {breathingGuideType === "metronome" && "⏱️ 節拍音"}
+                              {breathingGuideType === "vibrate" && "📳 震動"}
+                              {breathingGuideType === "none" && "🔇 已關閉"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { id: "ambient", label: "自然環境音", sub: "WAV 環境音檔", icon: Music },
+                              { id: "voice", label: "人聲語音", sub: "吸氣/閉氣/吐氣", icon: Mic },
+                              { id: "metronome", label: "節拍提示音", sub: "柔和換段音效", icon: Volume2 },
+                              { id: "vibrate", label: "手機震動", sub: "觸覺回饋提醒", icon: Smartphone },
+                            ].map((item) => {
+                              const Icon = item.icon;
+                              const active = breathingGuideType === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => setBreathingGuideType(item.id as any)}
+                                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${active
+                                    ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
+                                    : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/8 hover:text-white"
+                                    }`}
+                                >
+                                  <div className={`p-1.5 rounded-lg shrink-0 ${active ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
+                                    <Icon className="w-3.5 h-3.5" />
+                                  </div>
+                                  <div className="leading-tight min-w-0">
+                                    <p className="text-[10px] font-black">{item.label}</p>
+                                    <p className="text-[8px] opacity-60 font-bold">{item.sub}</p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setBreathingGuideType("none")}
+                            className={`w-full py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${breathingGuideType === "none"
+                              ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
+                              : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/8 hover:text-white"
+                              }`}
+                          >
+                            <VolumeX className="w-3.5 h-3.5" />
+                            <span>關閉所有聲音與震動</span>
+                          </button>
+                        </div>
+
+                        {/* 分割線 */}
+                        <div className="h-px bg-white/6" />
+
+                        {/* 2. 循環設定 */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-300">
+                            <span className="flex items-center gap-1.5">
+                              <RefreshCw className="w-3.5 h-3.5 text-teal-400" />
+                              循環設定
+                            </span>
+                            <span className="text-teal-400 text-[10px]">
+                              {breathingLoopType === "minutes" && `⏳ ${breathingLoopValue} 分鐘`}
+                              {breathingLoopType === "cycles" && `🌀 ${breathingLoopValue} 次`}
+                              {breathingLoopType === "infinite" && "🔂 無限"}
+                            </span>
+                          </div>
+
+                          {/* 循環類型 Tab */}
+                          <div className="grid grid-cols-3 gap-1.5 bg-black/20 p-1 rounded-xl border border-white/5">
+                            {[
+                              { id: "cycles", label: "按次數" },
+                              { id: "minutes", label: "按時間" },
+                              { id: "infinite", label: "無限" }
+                            ].map((tab) => {
+                              const active = breathingLoopType === tab.id;
+                              return (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setBreathingLoopType(tab.id as any);
+                                    if (tab.id === "cycles") setBreathingLoopValue(4);
+                                    else if (tab.id === "minutes") setBreathingLoopValue(3);
+                                  }}
+                                  className={`py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${active
+                                    ? "bg-teal-500/15 text-teal-350 border border-teal-500/20"
+                                    : "text-slate-400 hover:text-white border border-transparent"
+                                    }`}
+                                >
+                                  {tab.id === "infinite" && <Repeat className="w-3 h-3" />}
+                                  <span>{tab.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {breathingLoopType === "cycles" && (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-4 gap-1.5">
+                                {[4, 8, 16, 32].map((cycles) => (
+                                  <button key={cycles} type="button" onClick={() => setBreathingLoopValue(cycles)}
+                                    className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === cycles
+                                      ? "bg-teal-500/15 border-teal-500/40 text-teal-350"
+                                      : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/8 hover:text-white"}`}>
+                                    {cycles}次
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between bg-black/20 rounded-xl border border-white/5 px-3 py-2">
+                                <span className="text-[10px] text-slate-400 font-bold">自訂</span>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" onClick={() => setBreathingLoopValue(Math.max(1, breathingLoopValue - 1))}
+                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center cursor-pointer border border-white/10 leading-none font-bold">−</button>
+                                  <span className="text-teal-350 font-black text-xs w-10 text-center tabular-nums">{breathingLoopValue}次</span>
+                                  <button type="button" onClick={() => setBreathingLoopValue(breathingLoopValue + 1)}
+                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center cursor-pointer border border-white/10 leading-none font-bold">+</button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {breathingLoopType === "minutes" && (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-4 gap-1.5">
+                                {[1, 3, 5, 10].map((min) => (
+                                  <button key={min} type="button" onClick={() => setBreathingLoopValue(min)}
+                                    className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === min
+                                      ? "bg-teal-500/15 border-teal-500/40 text-teal-350"
+                                      : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/8 hover:text-white"}`}>
+                                    {min}分鐘
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between bg-black/20 rounded-xl border border-white/5 px-3 py-2">
+                                <span className="text-[10px] text-slate-400 font-bold">自訂</span>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" onClick={() => setBreathingLoopValue(Math.max(1, breathingLoopValue - 1))}
+                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center cursor-pointer border border-white/10 leading-none font-bold">−</button>
+                                  <span className="text-teal-350 font-black text-xs w-12 text-center tabular-nums">{breathingLoopValue}分鐘</span>
+                                  <button type="button" onClick={() => setBreathingLoopValue(breathingLoopValue + 1)}
+                                    className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center cursor-pointer border border-white/10 leading-none font-bold">+</button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {breathingLoopType === "infinite" && (
+                            <div className="p-3 rounded-xl bg-white/2 border border-white/5 text-center">
+                              <p className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1.5">
+                                <Repeat className="w-3.5 h-3.5 text-teal-400 animate-pulse-soft" />
+                                持續引導直到點擊「結束返回」
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 側邊欄 footer */}
+                      <div className="shrink-0 p-4 border-t border-white/6">
+                        <button
+                          type="button"
+                          onClick={() => setShowSettingsPanel(false)}
+                          className="w-full py-2.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-350 text-xs font-black cursor-pointer hover:bg-teal-500/20 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          儲存並關閉設定
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
               </motion.div>
             )}
           </AnimatePresence>
