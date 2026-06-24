@@ -3,6 +3,30 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import type { Plugin } from 'vite';
+
+/** Injects a <link rel="preload"> for the counselor avatar after Vite resolves its hash */
+function preloadCounselorAvatarPlugin(): Plugin {
+  let resolvedAvatarPath = '';
+  return {
+    name: 'preload-counselor-avatar',
+    generateBundle(_options, bundle) {
+      // Find the hashed asset filename for the counselor avatar
+      for (const fileName of Object.keys(bundle)) {
+        if (fileName.includes('counselor_avatar') && fileName.endsWith('.jpg')) {
+          resolvedAvatarPath = fileName;
+          break;
+        }
+      }
+    },
+    transformIndexHtml(html) {
+      if (!resolvedAvatarPath) return html;
+      const base = '/chat-light/';
+      const preloadTag = `  <link rel="preload" as="image" href="${base}${resolvedAvatarPath}" fetchpriority="high">`;
+      return html.replace('</head>', `${preloadTag}\n</head>`);
+    }
+  };
+}
 
 export default defineConfig(() => {
   return {
@@ -11,8 +35,9 @@ export default defineConfig(() => {
     plugins: [
       react(), 
       tailwindcss(),
+      preloadCounselorAvatarPlugin(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           name: '聊亮 ChatLight',

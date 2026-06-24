@@ -1024,11 +1024,14 @@ export default function App() {
                     <motion.div
                       whileHover={{ scale: 1.05 }}
                       className="w-24 h-24 rounded-3xl overflow-hidden shadow-xl shadow-indigo-200 animate-pulse-soft"
+                      onContextMenu={(e) => e.preventDefault()}
                     >
                       <img
                         src={counselorAvatar}
                         alt="Counselor"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover select-none pointer-events-none"
+                        fetchpriority="high"
+                        draggable={false}
                       />
                     </motion.div>
                   </div>
@@ -1184,8 +1187,9 @@ export default function App() {
                         <img
                           src={counselorAvatar}
                           alt="聊亮神隊友"
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover select-none pointer-events-none"
+                          fetchpriority="high"
+                          draggable={false}
                         />
                       </div>
                       <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
@@ -1281,7 +1285,7 @@ export default function App() {
                           <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-150">
                             <span className="flex items-center gap-1.5 font-extrabold text-slate-800 text-xs">
                               <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                              關卡過關標準 & 即時檢核狀態
+                              關卡過關標準
                             </span>
                             <button
                               onClick={(e: any) => {
@@ -1442,11 +1446,7 @@ export default function App() {
                                 {session.phase === 'resolved' ? "已恢復" : "未啟用"}
                               </span>
                             </div>
-                          </div>
-
-                          <div className="mt-4 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400 text-center font-medium">
-                            系統引導隨時自動重估並判定是否合規 ⚡
-                          </div>
+                          </div>                          
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -1662,8 +1662,9 @@ export default function App() {
                           <img
                             src={counselorAvatar}
                             alt="聊亮神隊友"
-                            className="w-full h-full rounded-full object-cover bg-white"
-                            referrerPolicy="no-referrer"
+                            className="w-full h-full rounded-full object-cover bg-white select-none pointer-events-none"
+                            loading="lazy"
+                            draggable={false}
                           />
                         </div>
                       ) : (
@@ -1721,8 +1722,9 @@ export default function App() {
                         <img
                           src={counselorAvatar}
                           alt="神隊友思考中"
-                          className="w-full h-full rounded-full object-cover bg-white"
-                          referrerPolicy="no-referrer"
+                          className="w-full h-full rounded-full object-cover bg-white select-none pointer-events-none"
+                          loading="lazy"
+                          draggable={false}
                         />
                       </div>
                       <div className="bg-white border border-slate-100 text-slate-500 shadow-xs p-3.5 rounded-2xl rounded-tl-none flex items-center gap-2 max-w-[80%] text-[12px] font-medium leading-normal animate-pulse">
@@ -2178,7 +2180,7 @@ export default function App() {
 
                   {/* Modal Footer warning */}
                   <div className="border-t border-slate-100 p-3 bg-slate-50 text-center text-[9px] text-slate-400 font-bold shrink-0">
-                    {selectedJournal ? "每一次觀照都是成長的基石，願你常伴光芒 🍂" : "心靈與秘密保存在本機 localStorage 之中，無須擔心外洩 🔒"}
+                    {selectedJournal ? "每一次觀照都是成長的基石，願你常伴光芒 🍂" : "心靈與秘密保存在此裝置裡，無須擔心外洩 🔒"}
                   </div>
                 </motion.div>
               </motion.div>
@@ -2249,7 +2251,7 @@ export default function App() {
                           {breathingPhase === "ready" && "找到舒服姿勢，放鬆肩膀，即可啟動引導調頻儀式。"}
                           {breathingPhase === "inhale" && "緩緩地，用 4 秒鐘將清新的氧氣吸入腹部，感受新鮮溫暖的能量。"}
                           {breathingPhase === "hold" && "溫和閉氣 7 秒鐘。讓吸入的能量與大腦思維交融，淨化急躁的心情。"}
-                          {breathingPhase === "exhale" && "微張嘴巴，花 8 秒鐘緩慢哈氣，將所有焦慮與生活卡點通通呼出。"}
+                          {breathingPhase === "exhale" && "微張嘴巴，花 8 秒鐘緩慢吐氣，將所有焦慮與生活卡點通通吐出。"}
                         </p>
                       </motion.div>
                     </AnimatePresence>

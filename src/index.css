@@ -83,6 +83,14 @@ html, body, #root {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* Prevent image saving / dragging globally */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  user-drag: none;
+}
+
 /* Glow effects */
 .glow-card {
   box-shadow: 0 10px 30px -10px rgba(251, 191, 36, 0.2);
