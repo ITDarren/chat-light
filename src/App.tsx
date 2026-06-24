@@ -905,10 +905,10 @@ export default function App() {
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, index) => {
       if (part.startsWith("**") && part.endsWith("**")) {
-        return (
-          <strong key={index} className="text-indigo-700 font-bold">
-            {part.slice(2, -2)}
-          </strong>
+        return React.createElement(
+          "strong",
+          { key: index, className: "text-indigo-700 font-bold" },
+          part.slice(2, -2)
         );
       }
       return part;
@@ -1216,7 +1216,7 @@ export default function App() {
                               關卡過關標準 & 即時檢核狀態
                             </span>
                             <button
-                              onClick={(e) => {
+                              onClick={(e: any) => {
                                 e.stopPropagation();
                                 setShowCriteria(false);
                               }}
@@ -1514,7 +1514,7 @@ export default function App() {
                         {/* Definitions */}
                         {session.definitions && session.definitions.length > 0 && (
                           <div className="mt-1 bg-white border border-indigo-100/50 p-1.5 rounded-xl text-[11px] text-slate-600 leading-relaxed font-mono shadow-xs">
-                            {session.definitions.map((def, idx) => (
+                            {session.definitions.map((def: any, idx: any) => (
                               <div key={idx} className="flex gap-1.5">
                                 <span className="text-indigo-500 font-bold">•</span>
                                 <span>{def}</span>
@@ -1582,7 +1582,7 @@ export default function App() {
 
                 {/* Chat view area */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-                  {messages.map((m) => (
+                  {messages.map((m: any) => (
                     <div
                       key={m.id}
                       className={`flex items-start gap-2.5 ${m.role === "user" ? "flex-row-reverse" : ""}`}
@@ -1719,7 +1719,7 @@ export default function App() {
                           exit={{ height: 0, opacity: 0 }}
                           className="px-4 py-2.5 flex flex-wrap gap-1.5 overflow-x-auto max-h-[110px] items-start select-none"
                         >
-                          {session.suggestions.map((suggestion, idx) => (
+                          {session.suggestions.map((suggestion: any, idx: any) => (
                             <motion.button
                               key={idx}
                               whileHover={{ scale: 1.02 }}
@@ -2013,7 +2013,7 @@ export default function App() {
                             大腦重塑信念（限制性信念 vs 轉念）
                           </span>
                           <div className="space-y-2">
-                            {selectedJournal.cardSet.map((card, idx) => (
+                            {selectedJournal.cardSet.map((card: any, idx: any) => (
                               <div key={idx} className="border border-slate-100 rounded-2xl overflow-hidden hover:border-slate-200 transition-all shadow-xs">
                                 <div className="bg-slate-100/50 p-2.5 px-3 text-[11px] text-slate-500 flex items-start gap-1.5 border-b border-slate-100/50">
                                   <span className="p-0.5 px-1 bg-red-50 text-red-500 rounded font-black text-[9px]">限制</span>
@@ -2065,7 +2065,7 @@ export default function App() {
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {journals.map((j) => (
+                            {journals.map((j: any) => (
                               <div
                                 key={j.id}
                                 onClick={() => setSelectedJournal(j)}
@@ -2092,7 +2092,7 @@ export default function App() {
                                 {/* Actions on list item */}
                                 <div className="flex items-center shrink-0">
                                   <button
-                                    onClick={(e) => deleteJournal(j.id, e)}
+                                    onClick={(e: any) => deleteJournal(j.id, e)}
                                     className="p-1 rounded-lg text-slate-300 hover:text-red-550 hover:bg-red-50/50 transition cursor-pointer"
                                     title="刪除此筆記錄"
                                   >
@@ -2354,8 +2354,8 @@ export default function App() {
                                       type="button"
                                       onClick={() => setBreathingGuideType(item.id as any)}
                                       className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${active
-                                          ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
-                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                        ? "bg-teal-500/10 border-teal-500/30 text-teal-350 shadow-md shadow-teal-950/20"
+                                        : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
                                         }`}
                                     >
                                       <div className={`p-1.5 rounded-lg ${active ? "bg-teal-500/20 text-teal-400" : "bg-black/20 text-slate-500"}`}>
@@ -2375,8 +2375,8 @@ export default function App() {
                                 type="button"
                                 onClick={() => setBreathingGuideType("none")}
                                 className={`w-full py-2 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${breathingGuideType === "none"
-                                    ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
-                                    : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                  ? "bg-teal-500/10 border-teal-500/30 text-teal-350"
+                                  : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
                                   }`}
                               >
                                 <VolumeX className="w-3.5 h-3.5" />
@@ -2422,8 +2422,8 @@ export default function App() {
                                         }
                                       }}
                                       className={`py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${active
-                                          ? "bg-teal-500/15 text-teal-350 border border-teal-500/20"
-                                          : "text-slate-400 hover:text-white border border-transparent"
+                                        ? "bg-teal-500/15 text-teal-350 border border-teal-500/20"
+                                        : "text-slate-400 hover:text-white border border-transparent"
                                         }`}
                                     >
                                       {tab.id === "infinite" && <Repeat className="w-3 h-3" />}
@@ -2443,8 +2443,8 @@ export default function App() {
                                         type="button"
                                         onClick={() => setBreathingLoopValue(cycles)}
                                         className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === cycles
-                                            ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                            : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
+                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
                                           }`}
                                       >
                                         {cycles}次
@@ -2477,8 +2477,8 @@ export default function App() {
                                         type="button"
                                         onClick={() => setBreathingLoopValue(min)}
                                         className={`py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer text-center ${breathingLoopValue === min
-                                            ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
-                                            : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                                          ? "bg-teal-500/15 border-teal-500/40 text-teal-350 shadow-md shadow-teal-950/20"
+                                          : "bg-white/3 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
                                           }`}
                                       >
                                         {min}分鐘
