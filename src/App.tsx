@@ -1096,7 +1096,7 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-2.5">
                     <button
                       onClick={() => triggerStart("我讀到一些單字突然覺得好累昏睡 🥱")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-400 hover:bg-emerald-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[90px] cursor-pointer group"
+                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-400 hover:bg-emerald-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">🥱 讀書想睡覺</span>
                       <div>
@@ -1107,7 +1107,7 @@ export default function App() {
 
                     <button
                       onClick={() => triggerStart("這句話看反覆三遍大腦依然空白，有看沒有懂 😵‍💫")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-400 hover:bg-emerald-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[90px] cursor-pointer group"
+                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-400 hover:bg-emerald-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">😵‍💫 學術名詞不解</span>
                       <div>
@@ -1118,7 +1118,7 @@ export default function App() {
 
                     <button
                       onClick={() => triggerStart("生活焦慮卡關，我想排除『完美主義』關鍵卡點 🗝️")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-400 hover:bg-indigo-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[90px] cursor-pointer group"
+                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-400 hover:bg-indigo-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">🗝️ 完美主義卡關</span>
                       <div>
@@ -1129,7 +1129,7 @@ export default function App() {
 
                     <button
                       onClick={() => triggerStart("我覺得面臨『他人期待』時好窒息，想進行行動排除 😡")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-400 hover:bg-indigo-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[90px] cursor-pointer group"
+                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-400 hover:bg-indigo-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">😡 他人期待重壓</span>
                       <div>
@@ -1324,14 +1324,18 @@ export default function App() {
 
                     {/* Dropdown overlay panel */}
                     <AnimatePresence>
-                      {showCriteria && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute right-0 top-12 w-80 sm:w-[420px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl border border-slate-200/80 shadow-2xl z-50 p-4 text-[11px] select-none text-left"
-                        >
+                    {showCriteria && (
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCriteria(false)} />
+                    )}
+                    {showCriteria && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-12 w-80 sm:w-[420px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl border border-slate-200/80 shadow-2xl z-50 p-4 text-[11px] select-none text-left"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                           <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-150">
                             <span className="flex items-center gap-1.5 font-extrabold text-slate-800 text-xs">
                               <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -2051,6 +2055,7 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 text-slate-800 animate-fade-in"
+                onClick={() => setShowJournalsModal(false)}
               >
                 <motion.div
                   initial={{ scale: 0.95, y: 15 }}
@@ -2058,6 +2063,7 @@ export default function App() {
                   exit={{ scale: 0.95, y: 15 }}
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className="bg-white w-full max-w-lg h-[80vh] sm:h-[75vh] rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden relative text-left"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {/* Modal Header */}
                   <div className="bg-slate-50 border-b border-slate-100 p-4.5 flex items-center justify-between shrink-0">
@@ -2508,14 +2514,17 @@ export default function App() {
                 {/* ===== 側邊設定面板 (slide-in from right) ===== */}
                 <AnimatePresence>
                   {showSettingsPanel && (
-                    <motion.div
-                      key="settings-panel"
-                      initial={{ x: "100%" }}
-                      animate={{ x: "0%" }}
-                      exit={{ x: "100%" }}
-                      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                      className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[88vw] bg-slate-950/98 border-l border-white/8 flex flex-col overflow-hidden z-20 shadow-2xl shadow-black/50 select-none"
-                    >
+                    <>
+                      <div className="absolute inset-0 z-10" onClick={() => setShowSettingsPanel(false)} />
+                      <motion.div
+                        key="settings-panel"
+                        initial={{ x: "100%" }}
+                        animate={{ x: "0%" }}
+                        exit={{ x: "100%" }}
+                        transition={{ type: "spring", stiffness: 320, damping: 32 }}
+                        className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[88vw] bg-slate-950/98 border-l border-white/8 flex flex-col overflow-hidden z-20 shadow-2xl shadow-black/50 select-none"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                       {/* 側邊欄 Header */}
                       <div className="flex items-center justify-between px-4 py-4 border-b border-white/8 shrink-0">
                         <span className="flex items-center gap-2 text-xs font-extrabold text-slate-200">
@@ -2730,6 +2739,7 @@ export default function App() {
                         </button>
                       </div>
                     </motion.div>
+                    </>
                   )}
                 </AnimatePresence>
 
