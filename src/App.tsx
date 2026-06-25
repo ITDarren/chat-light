@@ -1043,7 +1043,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}
                 transition={{ duration: 0.4 }}
-                className="flex-1 flex flex-col p-4 bg-gradient-to-b from-indigo-50/50 via-white to-white overflow-y-auto"
+                className="flex-1 flex flex-col p-4 bg-gradient-to-b from-indigo-50/50 via-white to-white overflow-y-auto select-none"
               >
                 {/* Header Visual */}
                 <div className="flex flex-col items-center pt-6 text-center">
@@ -1230,7 +1230,7 @@ export default function App() {
                 className="flex-1 flex flex-col min-h-0 bg-slate-50 overflow-hidden"
               >
                 {/* Header bar */}
-                <div className="bg-white border-b border-slate-100 p-2 flex items-center justify-between shadow-xs shrink-0 relative">
+                <div className="bg-white border-b border-slate-100 p-2 flex items-center justify-between shadow-xs shrink-0 relative select-none">
                   <div className="flex items-center gap-3">
                     <div className="relative">
                       <div className="w-10 h-10 rounded-xl bg-indigo-100 overflow-hidden flex items-center justify-center shadow-md shadow-indigo-100 border border-slate-150">
@@ -1335,7 +1335,7 @@ export default function App() {
                           <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-150">
                             <span className="flex items-center gap-1.5 font-extrabold text-slate-800 text-xs">
                               <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0" />
-                              關卡過關標準
+                              關卡介紹
                             </span>
                             <button
                               onClick={(e: any) => {
@@ -1344,7 +1344,7 @@ export default function App() {
                               }}
                               className="text-slate-450 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-all font-bold text-xs"
                             >
-                              收合 ×
+                              <X className="w-4 h-4" />
                             </button>
                           </div>
 
@@ -1607,7 +1607,7 @@ export default function App() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -40 }}
                       transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                      className="bg-indigo-50 border-b border-indigo-100/50 p-2.5 px-4 flex items-start gap-2.5 shadow-sm shrink-0"
+                      className="bg-indigo-50 border-b border-indigo-100/50 p-2.5 px-4 flex items-start gap-2.5 shadow-sm shrink-0 select-none"
                     >
                       <BookMarked className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                       <div className="flex-1">
@@ -1767,7 +1767,7 @@ export default function App() {
 
                   {/* Gemini Thinking / Loading State */}
                   {isLoading && (
-                    <div className="flex items-start gap-2.5">
+                    <div className="flex items-start gap-2.5 select-none">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 via-rose-300 to-indigo-400 p-[1.5px] shadow-sm shrink-0 select-none overflow-hidden flex items-center justify-center animate-pulse">
                         <img
                           src={counselorAvatar}
@@ -1786,7 +1786,7 @@ export default function App() {
 
                   {/* Error Box */}
                   {errorMsg && (
-                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-red-750 text-xs shadow-xs">
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-red-750 text-xs shadow-xs select-none">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                       <div className="flex-1">
                         <p className="font-bold">對話傳送異常</p>
@@ -1822,7 +1822,7 @@ export default function App() {
                 {session.suggestions && session.suggestions.length > 0 && !isLoading && !(session.phase === "practice" && session.mode === "life") && (
                   <div className="bg-slate-50 border-t border-slate-100 flex flex-col shrink-0">
                     <div className="flex items-center justify-between px-4 py-1.5 border-b border-slate-100/50">
-                      <span className="text-[10px] text-slate-400 font-medium">引導小卡</span>
+                      <span className="text-[10px] text-slate-400 font-medium select-none">引導小卡</span>
                       <button
                         onClick={() => setIsSuggestionsCollapsed(!isSuggestionsCollapsed)}
                         className="p-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer group rounded-md hover:bg-slate-200/50 flex items-center justify-center"
@@ -2012,7 +2012,7 @@ export default function App() {
                                   setShowSettingsPanel(false);
                                 }}
                                 className="w-10 h-10 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-650 flex items-center justify-center transition-all border border-teal-100/50 shadow-xs shrink-0 cursor-pointer"
-                                title="啟動 4-7-8 減壓深呼吸放鬆動畫"
+                                title="開啟 4-7-8 心靈呼吸器"
                               >
                                 <Wind className="w-4 h-4 text-teal-500 animate-pulse-soft" />
                               </motion.button>
@@ -2061,7 +2061,7 @@ export default function App() {
                 >
                   {/* Modal Header */}
                   <div className="bg-slate-50 border-b border-slate-100 p-4.5 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 select-none">
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
                         <BookOpen className="w-4 h-4" />
                       </div>
@@ -2099,7 +2099,7 @@ export default function App() {
                         </button>
 
                         {/* Detail Card Summary */}
-                        <div className="bg-gradient-to-br from-indigo-50/50 via-white to-indigo-50/10 p-4 rounded-2xl border border-indigo-100/50 space-y-3">
+                        <div className="bg-gradient-to-br from-indigo-50/50 via-white to-indigo-50/10 p-4 rounded-2xl border border-indigo-100/50 space-y-3 select-none">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] bg-indigo-100/60 text-indigo-700 px-2.5 py-1 rounded-full font-bold">
                               🌱 心靈排除卡點
@@ -2115,7 +2115,7 @@ export default function App() {
 
                         {/* 1. 心情轉折紀錄 */}
                         <div>
-                          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest block mb-1.5 flex items-center gap-1">
+                          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest block mb-1.5 flex items-center gap-1 select-none">
                             <Smile className="w-3.5 h-3.5 text-indigo-500" />
                             卡點氣候（心情轉折紀錄）
                           </span>
@@ -2129,7 +2129,7 @@ export default function App() {
 
                         {/* 2. 重構信念 */}
                         <div>
-                          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest block mb-1.5 flex items-center gap-1">
+                          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest block mb-1.5 flex items-center gap-1 select-none">
                             <Brain className="w-3.5 h-3.5 text-indigo-500" />
                             大腦重塑信念（限制性信念 vs 轉念）
                           </span>
@@ -2137,11 +2137,11 @@ export default function App() {
                             {selectedJournal.cardSet.map((card: any, idx: any) => (
                               <div key={idx} className="border border-slate-100 rounded-2xl overflow-hidden hover:border-slate-200 transition-all shadow-xs">
                                 <div className="bg-slate-100/50 p-2.5 px-3 text-[11px] text-slate-500 flex items-start gap-1.5 border-b border-slate-100/50">
-                                  <span className="p-0.5 px-1 bg-red-50 text-red-500 rounded font-black text-[9px]">限制</span>
+                                  <span className="p-0.5 px-1 bg-red-50 text-red-500 rounded font-black text-[9px] select-none">限制</span>
                                   <span className="leading-normal">{card.front}</span>
                                 </div>
                                 <div className="p-3 bg-emerald-50/20 text-xs text-slate-705 flex items-start flex-col gap-1.5">
-                                  <span className="p-0.5 px-1 bg-emerald-50 text-emerald-600 rounded font-black text-[9px] shrink-0">轉念</span>
+                                  <span className="p-0.5 px-1 bg-emerald-50 text-emerald-600 rounded font-black text-[9px] shrink-0 select-none">轉念</span>
                                   <span className="font-semibold text-slate-705 leading-relaxed">{card.back}</span>
                                 </div>
                               </div>
@@ -2150,7 +2150,7 @@ export default function App() {
                         </div>
 
                         {/* 3. 神聖契約誓言 */}
-                        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-4 rounded-2xl border border-emerald-500/15 space-y-2 relative overflow-hidden">
+                        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-4 rounded-2xl border border-emerald-500/15 space-y-2 relative overflow-hidden select-none">
                           <div className="absolute top-0 right-0 translate-x-4 -translate-y-4 text-emerald-500/5 rotate-12">
                             <CheckCircle2 className="w-24 h-24" />
                           </div>
@@ -2190,7 +2190,7 @@ export default function App() {
                               <div
                                 key={j.id}
                                 onClick={() => setSelectedJournal(j)}
-                                className="p-3.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/20 border border-slate-150/80 hover:border-indigo-200 transition-all shadow-xs flex items-center justify-between gap-3 group cursor-pointer"
+                                className="p-3.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/20 border border-slate-150/80 hover:border-indigo-200 transition-all shadow-xs flex items-center justify-between gap-3 group cursor-pointer select-none"
                               >
                                 <div className="flex-1 min-w-0 space-y-1 text-left">
                                   <div className="flex items-center justify-between sm:justify-start gap-2">
@@ -2229,7 +2229,7 @@ export default function App() {
                   </div>
 
                   {/* Modal Footer warning */}
-                  <div className="border-t border-slate-100 p-3 bg-slate-50 text-center text-[9px] text-slate-400 font-bold shrink-0">
+                  <div className="border-t border-slate-100 p-3 bg-slate-50 text-center text-[9px] text-slate-400 font-bold shrink-0 select-none">
                     {selectedJournal ? "每一次觀照都是成長的基石，願你常伴光芒 🍂" : "心靈與秘密保存在此裝置裡，無須擔心外洩 🔒"}
                   </div>
                 </motion.div>
@@ -2514,7 +2514,7 @@ export default function App() {
                       animate={{ x: "0%" }}
                       exit={{ x: "100%" }}
                       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                      className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[88vw] bg-slate-950/98 border-l border-white/8 flex flex-col overflow-hidden z-20 shadow-2xl shadow-black/50"
+                      className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[88vw] bg-slate-950/98 border-l border-white/8 flex flex-col overflow-hidden z-20 shadow-2xl shadow-black/50 select-none"
                     >
                       {/* 側邊欄 Header */}
                       <div className="flex items-center justify-between px-4 py-4 border-b border-white/8 shrink-0">

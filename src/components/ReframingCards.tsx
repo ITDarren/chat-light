@@ -290,7 +290,7 @@ export default function ReframingCards({ misunderstoodWord, onComplete }: Refram
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -15 }}
       transition={{ type: "spring", stiffness: 220, damping: 20 }}
-      className="bg-indigo-950/95 text-slate-100 rounded-3xl p-5 border border-indigo-550/40 shadow-2xl relative overflow-hidden font-sans backdrop-blur-md"
+      className="bg-indigo-950/95 text-slate-100 rounded-3xl p-5 border border-indigo-550/40 shadow-2xl relative overflow-hidden font-sans backdrop-blur-md select-none"
     >
       {/* Background radial soft light to look highly premium */}
       <div className="absolute top-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -translate-x-20 -translate-y-20"></div>
