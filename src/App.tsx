@@ -966,11 +966,11 @@ export default function App() {
       const rawMsg: string = error?.message || "";
       let friendlyMsg = "連線異常，請稍後重試。";
       if (rawMsg.includes("RESOURCE_EXHAUSTED") || rawMsg.includes("429") || rawMsg.includes("quota")) {
-        friendlyMsg = "😴 AI 今天有點累了，免費配額已用完。請稍後再試，或聯繫管理員升級 API 方案。";
+        friendlyMsg = "😴 神隊友 今天有點累了，免費配額已用完。請稍後再試，或聯繫管理員升級方案。";
       } else if (rawMsg.includes("NOT_FOUND") || rawMsg.includes("404")) {
         friendlyMsg = "🔧 模型暫時無法使用，請稍後再試。";
       } else if (rawMsg.includes("UNAVAILABLE") || rawMsg.includes("503")) {
-        friendlyMsg = "🌐 AI 服務暫時中斷，請稍候片刻再重試。";
+        friendlyMsg = "🌐 神隊友 服務暫時中斷，請稍候片刻再重試。";
       } else if (rawMsg.includes("API key") || rawMsg.includes("PERMISSION_DENIED")) {
         friendlyMsg = "🔑 API Key 設定有誤，請確認環境設定。";
       } else if (rawMsg) {
@@ -1189,6 +1189,22 @@ export default function App() {
                     <Sparkles className="w-5 h-5 text-indigo-200 animate-spin-slow" />
                     一鍵開始對話
                     <ArrowRight className="w-5 h-5 text-indigo-200 ml-1" />
+                  </motion.button>
+
+                  <motion.button
+                    onClick={() => {
+                      setShowBreathingModal(true);
+                      setBreathingPhase("ready");
+                      setBreathingCycle(1);
+                      setBreathingTimer(0);
+                      setShowSettingsPanel(false);
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-3 px-6 rounded-2xl bg-teal-500 hover:bg-teal-600 text-white font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all duration-200"
+                  >
+                    <Wind className="w-4 h-4 text-teal-100" />
+                    4-7-8 MIND BREATHER
                   </motion.button>
 
                   {showInstallBtn && (
@@ -2485,7 +2501,7 @@ export default function App() {
                 {/* Bottom footer quote */}
                 <div className="pb-6 pt-2 select-none shrink-0">
                   <p className="text-[10px] font-bold text-slate-500 tracking-wide uppercase">
-                    「呼氣時 呼出重擔；吸氣時 注入新生」 🌬️
+                    「吐氣時 吐出重擔；吸氣時 注入新生」 🌬️
                   </p>
                 </div>
 
