@@ -38,7 +38,22 @@ export default defineConfig(() => {
       preloadCounselorAvatarPlugin(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png', 'src/assets/images/counselor_avatar_1781520672657.jpg'],
+        workbox: {
+          runtimeCaching: [
+            {
+              urlPattern: /^.*\.(?:png|jpg|jpeg|svg|webp)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'image-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30,
+                },
+              },
+            },
+          ],
+        },
         manifest: {
           name: '聊亮 ChatLight',
           short_name: '聊亮',

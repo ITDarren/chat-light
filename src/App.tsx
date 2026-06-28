@@ -41,6 +41,30 @@ import {
 } from "lucide-react";
 import ReframingCards, { getReframingCards, getCategoryVow } from "./components/ReframingCards";
 
+function OfflineImage({ src, alt, className, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className={`overflow-hidden ${className ?? ""}`} role="img" aria-label={alt}>
+        <div className="w-full h-full bg-slate-100 text-slate-400 flex items-center justify-center">
+          <User className="w-5 h-5" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+      {...props}
+    />
+  );
+}
+
 export default function App() {
   const [isPlayingWelcome, setIsPlayingWelcome] = useState<boolean>(false);
   const [started, setStarted] = useState<boolean>(false);
@@ -1060,7 +1084,7 @@ export default function App() {
                       className="w-24 h-24 rounded-3xl overflow-hidden shadow-xl shadow-indigo-200 animate-pulse-soft"
                       onContextMenu={(e) => e.preventDefault()}
                     >
-                      <img
+                      <OfflineImage
                         src={counselorAvatar}
                         alt="Counselor"
                         className="w-full h-full object-cover select-none pointer-events-none"
@@ -1234,7 +1258,7 @@ export default function App() {
                   <div className="flex items-center gap-3">
                     <div className="relative">
                       <div className="w-10 h-10 rounded-xl bg-indigo-100 overflow-hidden flex items-center justify-center shadow-md shadow-indigo-100 border border-slate-150">
-                        <img
+                        <OfflineImage
                           src={counselorAvatar}
                           alt="聊亮神隊友"
                           className="w-full h-full object-cover select-none pointer-events-none"
@@ -1713,7 +1737,7 @@ export default function App() {
                       {/* Profile Icon */}
                       {m.role === "assistant" ? (
                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 via-rose-300 to-indigo-400 p-[1.5px] shadow-sm shrink-0 select-none overflow-hidden flex items-center justify-center">
-                          <img
+                          <OfflineImage
                             src={counselorAvatar}
                             alt="聊亮神隊友"
                             className="w-full h-full rounded-full object-cover bg-white select-none pointer-events-none"
@@ -1773,7 +1797,7 @@ export default function App() {
                   {isLoading && (
                     <div className="flex items-start gap-2.5 select-none">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 via-rose-300 to-indigo-400 p-[1.5px] shadow-sm shrink-0 select-none overflow-hidden flex items-center justify-center animate-pulse">
-                        <img
+                        <OfflineImage
                           src={counselorAvatar}
                           alt="神隊友思考中"
                           className="w-full h-full rounded-full object-cover bg-white select-none pointer-events-none"
