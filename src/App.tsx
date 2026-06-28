@@ -335,7 +335,6 @@ export default function App() {
       const offline = typeof navigator !== "undefined" ? !navigator.onLine : false;
       setIsOffline(offline);
       if (offline) {
-        setStarted(false);
         setErrorMsg("目前已離線，可使用 4-7-8 心靈呼吸器。");
       } else {
         setErrorMsg(null);
@@ -933,7 +932,7 @@ export default function App() {
   // Start counseling session with custom prompt message
   const triggerStart = (initialText?: string) => {
     if (isOffline) {
-      setErrorMsg("目前已離線，可使用 4-7-8 心靈呼吸器。");
+      setErrorMsg("目前已離線，4-7-8 心靈呼吸器可使用。");
       return;
     }
 
@@ -1156,7 +1155,6 @@ export default function App() {
                   )}
                 </div>
 
-                {!isOffline && (
                   <>
                     {/* Lively Card Scenarios - Unified Grid without Category Headers */}
                 <div className="my-5 space-y-3">
@@ -1257,9 +1255,10 @@ export default function App() {
                   <motion.button
                     id="btn_start_counseling"
                     onClick={() => triggerStart()}
+                    disabled={isOffline}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full py-4 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-100 transition-all duration-200"
+                    className={`w-full py-4 px-6 rounded-2xl font-bold text-base tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-100 transition-all duration-200 ${isOffline ? "bg-slate-300 text-slate-500 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}
                   >
                     <Sparkles className="w-5 h-5 text-indigo-200 animate-spin-slow" />
                     一鍵開始對話
@@ -1282,12 +1281,14 @@ export default function App() {
                     4-7-8 MIND BREATHER
                   </motion.button>
 
-                  {showInstallBtn && !isOffline && (
+                  {showInstallBtn && (
                     <motion.button
                       onClick={handleInstallPWA}
+                      disabled={isOffline}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all duration-200"
+                      className={`w-full py-3 px-6 rounded-2xl font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all duration-200 ${isOffline ? "bg-slate-200 text-slate-500 cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 text-white"}`}
+                      title={isOffline ? "離線時無法安裝應用程式" : "安裝「聊亮」App 至桌面"}
                     >
                       <Download className="w-4 h-4 text-emerald-100" />
                       安裝「聊亮」App 至桌面
@@ -1295,7 +1296,6 @@ export default function App() {
                   )}
                 </div>
                 </>
-                )}
               </motion.div>
             ) : (
               /* ================= COUNSELING SESSION SCREEN ================= */
@@ -1328,19 +1328,32 @@ export default function App() {
                           ChatLight
                         </span>
                       </h2>
-                      <p className="text-[10px] text-slate-400 font-semibold tracking-wider flex items-center gap-1 uppercase">
-                        線上即時解卡中
+                      <p className={`text-[10px] font-semibold tracking-wider flex items-center gap-1 uppercase ${isOffline ? 'text-amber-700' : 'text-slate-400'}`}>
+                        {isOffline ? '正在等待連線中' : '線上即時解卡中'}
                       </p>
                     </div>
                   </div>
+
+                  {isOffline && (
+                    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-amber-900 text-[12px] leading-relaxed select-none">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-700" />
+                        <p className="font-medium">目前已離線，4-7-8 心靈呼吸器可使用，其他功能為停用狀態。</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-1.5 relative">
                     {/* PWA Install Button in Header */}
                     {showInstallBtn && (
                       <button
                         onClick={handleInstallPWA}
-                        className="p-1.5 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 rounded-xl transition-all relative flex items-center justify-center cursor-pointer border border-emerald-150 animate-pulse-soft"
-                        title="下載安裝此應用程式"
+                        disabled={isOffline}
+                        className={`p-1.5 rounded-xl transition-all relative flex items-center justify-center border border-emerald-150 animate-pulse-soft ${isOffline
+                          ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          : "hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700"
+                          }`}
+                        title={isOffline ? "離線時無法安裝應用程式" : "下載安裝此應用程式"}
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -1925,8 +1938,9 @@ export default function App() {
                               key={idx}
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
-                              onClick={() => handleSendMessage(suggestion)}
-                              className="text-[11px] p-2 px-3 rounded-full bg-white border border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all font-medium text-left truncate max-w-full cursor-pointer flex items-center gap-1 shrink-0 shadow-xs"
+                              onClick={() => !isOffline && handleSendMessage(suggestion)}
+                              disabled={isOffline}
+                              className={`text-[11px] p-2 px-3 rounded-full bg-white border border-slate-200 text-slate-700 transition-all font-medium text-left truncate max-w-full flex items-center gap-1 shrink-0 shadow-xs ${isOffline ? "cursor-not-allowed opacity-60" : "hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer"}`}
                             >
                               <span className="text-indigo-500 text-[10px]">✦</span>
                               {suggestion}
@@ -2028,14 +2042,16 @@ export default function App() {
                             type="text"
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && !isReframingActive && handleSendMessage()}
-                            disabled={isLoading || isReframingActive}
+                            onKeyDown={(e) => e.key === "Enter" && !isReframingActive && !isOffline && handleSendMessage()}
+                            disabled={isLoading || isReframingActive || isOffline}
                             placeholder={
-                              isReframingActive
-                                ? "✨ 請直接點選與翻閱上方的轉念承諾護照進行簽署..."
-                                : session.phase === "practice"
-                                  ? "請輸入造句例句以利確認..."
-                                  : "請在此輸入你的文字..."
+                              isOffline
+                                ? "沒有網路，無法發送訊息..."
+                                : isReframingActive
+                                  ? "✨ 請直接點選與翻閱上方的轉念承諾護照進行簽署..."
+                                  : session.phase === "practice"
+                                    ? "請輸入造句例句以利確認..."
+                                    : "請在此輸入你的文字..."
                             }
                             className={`w-full border text-slate-800 text-xs rounded-xl p-3 focus:outline-none bg-slate-50 font-sans disabled:opacity-50 transition-all ${isReframingActive
                               ? "bg-slate-100 border-slate-200 text-slate-400 placeholder-slate-400/80 cursor-not-allowed select-none"
@@ -2055,14 +2071,14 @@ export default function App() {
                                 exit={{ opacity: 0, scale: 0.8 }}
                                 transition={{ duration: 0.15 }}
                                 whileHover={{ scale: 1.05 }}
-                                whileTap={isReframingActive ? {} : { scale: 0.95 }}
-                                onClick={() => handleSendMessage()}
-                                disabled={isLoading || !inputValue.trim() || isReframingActive}
-                                className={`absolute right-1.5 w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-sm shrink-0 cursor-pointer ${isReframingActive
+                                whileTap={isReframingActive || isOffline ? {} : { scale: 0.95 }}
+                                onClick={() => !isOffline && handleSendMessage()}
+                                disabled={isLoading || !inputValue.trim() || isReframingActive || isOffline}
+                                className={`absolute right-1.5 w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-sm shrink-0 ${isReframingActive || isOffline
                                   ? "bg-slate-150 text-slate-405 opacity-40 cursor-not-allowed select-none"
-                                  : "bg-indigo-600 text-white hover:bg-indigo-700"
+                                  : "bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer"
                                   }`}
-                                title={isReframingActive ? "轉念階段請使用上方卡片進行簽署" : "發送訊息"}
+                                title={isReframingActive ? "轉念階段請使用上方卡片進行簽署" : isOffline ? "目前離線，無法發送訊息" : "發送訊息"}
                               >
                                 <Send className="w-3.5 h-3.5 text-white" />
                               </motion.button>
@@ -2101,14 +2117,14 @@ export default function App() {
                               {/* 2. Micro Recording Button */}
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
-                                whileTap={isReframingActive ? {} : { scale: 0.95 }}
-                                onClick={toggleRecording}
-                                disabled={isLoading || isReframingActive}
-                                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-xs shrink-0 cursor-pointer ${isReframingActive
+                                whileTap={isReframingActive || isOffline ? {} : { scale: 0.95 }}
+                                onClick={() => !isOffline && toggleRecording()}
+                                disabled={isLoading || isReframingActive || isOffline}
+                                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-xs shrink-0 ${isReframingActive || isOffline
                                   ? "bg-slate-100 text-slate-300 opacity-40 cursor-not-allowed select-none"
                                   : "bg-slate-100 hover:bg-slate-200 text-slate-500"
                                   }`}
-                                title={isReframingActive ? "轉念階段不提供語音輸入" : "語音輸入"}
+                                title={isReframingActive ? "轉念階段不提供語音輸入" : isOffline ? "沒有網路，無法使用語音輸入" : "語音輸入"}
                               >
                                 <Mic className="w-4 h-4 text-slate-400 hover:text-slate-600 transition-colors" />
                               </motion.button>
