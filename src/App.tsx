@@ -76,6 +76,7 @@ export default function App() {
   // PWA installation states
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(() => typeof navigator !== "undefined" ? !navigator.onLine : false);
 
 
   // Auto play speech toggle
@@ -326,6 +327,26 @@ export default function App() {
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateNetworkState = () => {
+      const offline = typeof navigator !== "undefined" ? !navigator.onLine : false;
+      setIsOffline(offline);
+      if (offline) {
+        setStarted(false);
+        setErrorMsg("目前已離線，可使用 4-7-8 心靈呼吸器。");
+      } else {
+        setErrorMsg(null);
+      }
+    };
+
+    window.addEventListener("online", updateNetworkState);
+    window.addEventListener("offline", updateNetworkState);
+    return () => {
+      window.removeEventListener("online", updateNetworkState);
+      window.removeEventListener("offline", updateNetworkState);
     };
   }, []);
 
@@ -911,6 +932,11 @@ export default function App() {
 
   // Start counseling session with custom prompt message
   const triggerStart = (initialText?: string) => {
+    if (isOffline) {
+      setErrorMsg("目前已離線，可使用 4-7-8 心靈呼吸器。");
+      return;
+    }
+
     setStarted(true);
     setMessages([
       {
@@ -931,6 +957,12 @@ export default function App() {
 
   // API Call to Express backend
   const handleSendMessage = async (textToSend?: string) => {
+    if (isOffline) {
+      setErrorMsg("目前已離線，無法發送訊息。");
+      setIsLoading(false);
+      return;
+    }
+
     // Guard manual text submissions during reframing phase to avoid conversation loops
     if (!textToSend && session.phase === "practice" && session.mode === "life") {
       return;
@@ -1071,6 +1103,17 @@ export default function App() {
               >
                 {/* Header Visual */}
                 <div className="flex flex-col items-center pt-6 text-center">
+                  {isOffline && (
+                    <div className="mb-4 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-amber-900 text-sm leading-relaxed shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 mt-0.5 text-amber-700" />
+                        <div>
+                          <p className="font-semibold">目前處於離線模式</p>
+                          <p className="text-[12px] text-amber-800">4-7-8 心靈呼吸器功能可正常使用，其他對話功能已暫停。</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="relative mb-6">
                     {/* Outer floating decorations */}
                     <div className="absolute -top-3 -left-3 text-indigo-500 animate-bounce">
@@ -1102,16 +1145,20 @@ export default function App() {
                     是不是生活總是卡卡的，明明睡飽了卻還是覺得累，大腦常常一片空白 ，或是很容易放棄呢。
                   </p>
 
-                  <button
-                    onClick={() => setShowJournalsModal(true)}
-                    className="mt-3 px-3.5 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 text-[11px] font-extrabold transition-all flex items-center justify-center gap-1.5 border border-indigo-100/50 cursor-pointer shadow-indigo-100/30 shadow-sm"
-                  >
-                    {/*  <BookOpen className="w-3.5 h-3.5 text-indigo-500 animate-pulse-soft" /> */}
-                    🌸 查閱過往轉念心情筆記 ({journals.length})
-                  </button>
+                  {!isOffline && (
+                    <button
+                      onClick={() => setShowJournalsModal(true)}
+                      className="mt-3 px-3.5 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 text-[11px] font-extrabold transition-all flex items-center justify-center gap-1.5 border border-indigo-100/50 cursor-pointer shadow-indigo-100/30 shadow-sm"
+                    >
+                      {/*  <BookOpen className="w-3.5 h-3.5 text-indigo-500 animate-pulse-soft" /> */}
+                      🌸 查閱過往轉念心情筆記 ({journals.length})
+                    </button>
+                  )}
                 </div>
 
-                {/* Lively Card Scenarios - Unified Grid without Category Headers */}
+                {!isOffline && (
+                  <>
+                    {/* Lively Card Scenarios - Unified Grid without Category Headers */}
                 <div className="my-5 space-y-3">
                   <p className="text-slate-800 font-bold text-xs text-center border-b border-dashed border-slate-200 pb-2.5">
                     🔔 請選擇你需要的引導方向或面臨的困境：
@@ -1120,7 +1167,8 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-2.5">
                     <button
                       onClick={() => triggerStart("我讀到一些單字突然覺得好累昏睡 🥱")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-400 hover:bg-emerald-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
+                      className={`p-2.5 rounded-xl bg-white border border-slate-100 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] ${isOffline ? 'opacity-40 cursor-not-allowed border-slate-200' : 'hover:border-emerald-400 hover:bg-emerald-50/10'} ${isOffline ? 'pointer-events-none' : 'cursor-pointer'} group`}
+                      disabled={isOffline}
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">🥱 讀書想睡覺</span>
                       <div>
@@ -1131,7 +1179,8 @@ export default function App() {
 
                     <button
                       onClick={() => triggerStart("這句話看反覆三遍大腦依然空白，有看沒有懂 😵‍💫")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-emerald-400 hover:bg-emerald-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
+                      className={`p-2.5 rounded-xl bg-white border border-slate-100 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] ${isOffline ? 'opacity-40 cursor-not-allowed border-slate-200' : 'hover:border-emerald-400 hover:bg-emerald-50/10'} ${isOffline ? 'pointer-events-none' : 'cursor-pointer'} group`}
+                      disabled={isOffline}
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">😵‍💫 學術名詞不解</span>
                       <div>
@@ -1142,7 +1191,8 @@ export default function App() {
 
                     <button
                       onClick={() => triggerStart("生活焦慮卡關，我想排除『完美主義』關鍵卡點 🗝️")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-400 hover:bg-indigo-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
+                      className={`p-2.5 rounded-xl bg-white border border-slate-100 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] ${isOffline ? 'opacity-40 cursor-not-allowed border-slate-200' : 'hover:border-indigo-400 hover:bg-indigo-50/10'} ${isOffline ? 'pointer-events-none' : 'cursor-pointer'} group`}
+                      disabled={isOffline}
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">🗝️ 完美主義卡關</span>
                       <div>
@@ -1153,7 +1203,8 @@ export default function App() {
 
                     <button
                       onClick={() => triggerStart("我覺得面臨『他人期待』時好窒息，想進行行動排除 😡")}
-                      className="p-2.5 rounded-xl bg-white border border-slate-100 hover:border-indigo-400 hover:bg-indigo-50/10 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] cursor-pointer group"
+                      className={`p-2.5 rounded-xl bg-white border border-slate-100 text-left transition-all duration-200 shadow-xs flex flex-col justify-between h-[80px] ${isOffline ? 'opacity-40 cursor-not-allowed border-slate-200' : 'hover:border-indigo-400 hover:bg-indigo-50/10'} ${isOffline ? 'pointer-events-none' : 'cursor-pointer'} group`}
+                      disabled={isOffline}
                     >
                       <span className="text-base group-hover:scale-105 transition-transform duration-200">😡 他人期待重壓</span>
                       <div>
@@ -1231,7 +1282,7 @@ export default function App() {
                     4-7-8 MIND BREATHER
                   </motion.button>
 
-                  {showInstallBtn && (
+                  {showInstallBtn && !isOffline && (
                     <motion.button
                       onClick={handleInstallPWA}
                       whileHover={{ scale: 1.02 }}
@@ -1243,6 +1294,8 @@ export default function App() {
                     </motion.button>
                   )}
                 </div>
+                </>
+                )}
               </motion.div>
             ) : (
               /* ================= COUNSELING SESSION SCREEN ================= */
