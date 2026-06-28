@@ -336,7 +336,7 @@ export default function App() {
       const offline = typeof navigator !== "undefined" ? !navigator.onLine : false;
       setIsOffline(offline);
       if (offline) {
-        setErrorMsg("目前已離線，可使用 4-7-8 心靈呼吸器。");
+        setErrorMsg("目前已離線，4-7-8 心靈呼吸器可使用。");
       } else {
         setErrorMsg(null);
       }
@@ -1134,7 +1134,7 @@ export default function App() {
                         <AlertCircle className="w-4 h-4 mt-0.5 text-amber-700" />
                         <div>
                           <p className="font-semibold">目前處於離線模式</p>
-                          <p className="text-[12px] text-amber-800">4-7-8 心靈呼吸器功能可正常使用，其他對話功能已暫停。</p>
+                          <p className="text-[12px] text-amber-800">4-7-8 MIND BREATHER可使用，其他對話功能無法使用。</p>
                         </div>
                       </div>
                     </div>
