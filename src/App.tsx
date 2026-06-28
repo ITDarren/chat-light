@@ -292,6 +292,7 @@ export default function App() {
       "面臨他人期待時好窒息，想進行行動排除 😡"
     ]
   });
+  const [pendingSessionQueue, setPendingSessionQueue] = useState<ChatSessionState[]>([]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -716,6 +717,17 @@ export default function App() {
     lastSentenceCountRef.current = currentCount;
   }, [session.phase, session.sentenceCount, started]);
 
+  useEffect(() => {
+    if (session.phase === "resolved" && pendingSessionQueue.length > 0) {
+      const [nextPending, ...rest] = pendingSessionQueue;
+      setPendingSessionQueue(rest);
+      setSession(nextPending);
+      setErrorMsg(
+        `已回到先前 ${nextPending.mode === "life" ? "心理卡點" : "模糊字詞"}流程，讓我們繼續完成。`
+      );
+    }
+  }, [session.phase, pendingSessionQueue]);
+
   // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -1002,6 +1014,20 @@ export default function App() {
       };
 
       setMessages((prev) => [...prev, newAssistantMsg]);
+
+      const shouldQueuePreviousFlow =
+        session.mode &&
+        session.phase !== "resolved" &&
+        session.phase !== "discovery" &&
+        data.mode !== session.mode;
+
+      if (shouldQueuePreviousFlow) {
+        setPendingSessionQueue((prev) => [...prev, session]);
+        setErrorMsg(
+          `已暫存先前 ${session.mode === "life" ? "心理卡點" : "模糊字詞"}流程，完成目前流程後將自動回歸。`
+        );
+      }
+
       setSession({
         phase: (rawTxt.includes("轉念實踐契約") || rawTxt.includes("承諾誓言")) && data.mode === "life"
           ? "resolved"
