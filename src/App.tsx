@@ -1360,15 +1360,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {isOffline && (
-                    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-amber-900 text-[12px] leading-relaxed select-none">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-700" />
-                        <p className="font-medium">目前已離線，4-7-8 心靈呼吸器可使用，其他功能為停用狀態。</p>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="flex items-center gap-1.5 relative">
                     {/* PWA Install Button in Header */}
                     {showInstallBtn && (
