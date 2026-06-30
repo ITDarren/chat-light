@@ -1900,14 +1900,8 @@ export default function App() {
                     <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-red-750 text-xs shadow-xs select-none">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                       <div className="flex-1">
-                        <p className="font-bold">對話傳送異常</p>
+                        <p className="font-bold">系統訊息</p>
                         <p className="text-[11px] opacity-80">{errorMsg}</p>
-                        <button
-                          onClick={() => handleSendMessage()}
-                          className="mt-1.5 underline font-black text-red-900 cursor-pointer"
-                        >
-                          重試傳送
-                        </button>
                       </div>
                     </div>
                   )}
